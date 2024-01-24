@@ -24,14 +24,87 @@ import time
 from collections.abc import Callable, Generator, Iterator, Sequence
 from typing import Any, Generic, Optional, TypeVar, Union
 
-from rucio.common.logging import formatted_logger
+import rucio.db.sqla.util
+from rucio.common.logging import formatted_logger, setup_logging
 from rucio.common.utils import PriorityQueue
 from rucio.core import heartbeat as heartbeat_core
 from rucio.core.monitor import MetricManager
+from rucio.lib.rucio.common.exception import DatabaseException
 
 T = TypeVar('T')
 METRICS = MetricManager(module=__name__)
 
+class BaseDaemon:
+    """
+    Base daemon class
+    """
+
+    def __init__(self, daemon_name: str = "undefined_daemon", once: bool = False, total_workers: int = 1, chunk_size: int = 10, sleep_time: int = 60, partition_wait_time: int = 1):
+        self.daemon_name = daemon_name
+        self.once = once
+        self.total_workers = total_workers
+        self.chunk_size = chunk_size
+        self.sleep_time = sleep_time
+        self.partition_wait_time = partition_wait_time
+        self.graceful_stop = threading.Event()
+        setup_logging(process_name=daemon_name)
+
+    def _pre_run_checks():
+        """
+        Checks to run before daemon execution
+        """
+        if rucio.db.sqla.util.is_old_db():
+            raise DatabaseException("Database was not updated, daemon won't start")
+
+    def run(self):
+        self.pre_run_checks()
+        run_once_fnc=functools.partial(
+                    self._run_once
+                )
+
+        if self.once:
+            self.call_daemon(run_once_fnc=run_once_fnc)
+        else:
+            logging.info('main: starting threads')
+            threads = [threading.Thread(target=self.call_daemon, kwargs={'run_once_fnc': run_once_fnc}) for _ in range(0, self.total_workers)]
+            [t.start() for t in threads]
+            logging.info('main: waiting for interrupts')
+
+            # Interruptible joins require a timeout.
+            while threads[0].is_alive():
+                [t.join(timeout=3.14) for t in threads]
+
+    def _run_once():
+        """
+        Daemon-specific logic (to be defined in child classes) for a single iteration
+        """
+        pass
+
+
+    def call_daemon(self,
+            run_once_fnc: Callable[..., Optional[Union[bool, tuple[bool, Any]]]],
+            activities: Optional[list[str]] = None):
+        """
+        Run the daemon loop and call the function run_once_fnc at each iteration
+        """
+
+        daemon = db_workqueue(
+            once=self.once,
+            graceful_stop=self.graceful_stop,
+            executable=self.daemon_name,
+            partition_wait_time=self.partition_wait_time,
+            sleep_time=self.sleep_time,
+            activities=activities,
+        )(run_once_fnc)
+
+        for _ in daemon():
+            pass
+
+    def stop(self) -> None:
+        """
+        Graceful exit.
+        """
+        self.graceful_stop.set()
 
 class HeartbeatHandler:
     """
