@@ -43,7 +43,7 @@ from rucio.daemons.conveyor.submitter import submitter
 from rucio.daemons.conveyor.stager import stager
 from rucio.daemons.conveyor.throttler import throttler
 from rucio.daemons.conveyor.receiver import receiver, GRACEFUL_STOP as receiver_graceful_stop, Receiver
-from rucio.daemons.reaper.reaper import reaper
+from rucio.daemons.reaper.reaper import Reaper
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import LockState, RequestState, RequestType, ReplicaState, RSEType, RuleState
 from rucio.db.sqla.session import read_session, transactional_session
@@ -132,9 +132,9 @@ def scitags_mock(core_config_mock):
             self.send_code_and_message(200, {'Content-Type': 'application/json'}, file_content)
 
     with MockServer(_SendScitagsJson) as mock_server:
-        core_config.set('packet-marking', 'enabled',  True)
-        core_config.set('packet-marking', 'fetch_url',  mock_server.base_url)
-        core_config.set('packet-marking', 'exp_name',  'atlas')
+        core_config.set('packet-marking', 'enabled', True)
+        core_config.set('packet-marking', 'fetch_url', mock_server.base_url)
+        core_config.set('packet-marking', 'exp_name', 'atlas')
         yield mock_server
 
 
@@ -209,7 +209,8 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
 
         # The intermediate replica is protected by its state (Copying)
         rucio.daemons.reaper.reaper.REGION.invalidate()
-        reaper(once=True, rses=[], include_rses=jump_rse_name, exclude_rses=None)
+        reaper = Reaper(once=True, rses=[], include_rses=jump_rse_name, exclude_rses=None)
+        reaper._call_daemon()
         replica = replica_core.get_replica(rse_id=jump_rse_id, **did)
         assert replica['state'] == ReplicaState.COPYING
 
@@ -230,7 +231,8 @@ def test_multihop_intermediate_replica_lifecycle(vo, did_factory, root_account, 
         assert replica['state'] == ReplicaState.AVAILABLE
 
         rucio.daemons.reaper.reaper.REGION.invalidate()
-        reaper(once=True, rses=[], include_rses='test_container_xrd=True', exclude_rses=None)
+        reaper2 = Reaper(once=True, rses=[], include_rses='test_container_xrd=True', exclude_rses=None)
+        reaper2._call_daemon()
 
         with pytest.raises(ReplicaNotFound):
             replica_core.get_replica(rse_id=jump_rse_id, **did)
@@ -1496,7 +1498,8 @@ def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_acco
 
     # One of the intermediate replicas is eligible for deletion. Others are blocked by entries in source table
     reaper_cache_region.invalidate()
-    reaper(once=True, rses=[], include_rses='|'.join([rse2, rse3, rse4, rse6]), exclude_rses=None)
+    reaper = Reaper(once=True, rses=[], include_rses='|'.join([rse2, rse3, rse4, rse6]), exclude_rses=None)
+    reaper._call_daemon()
     with pytest.raises(ReplicaNotFound):
         replica_core.get_replica(rse_id=rse_id_second_to_last_submit, **did)
     for rse_id in [rse2_id, rse3_id, rse_id_second_to_last_queued]:
@@ -1509,7 +1512,7 @@ def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_acco
 
     # All intermediate replicas can be deleted
     reaper_cache_region.invalidate()
-    reaper(once=True, rses=[], include_rses='|'.join([rse2, rse3, rse4, rse6]), exclude_rses=None)
+    reaper._call_daemon()
     for rse_id in [rse2_id, rse3_id, rse4_id, rse6_id]:
         with pytest.raises(ReplicaNotFound):
             replica_core.get_replica(rse_id=rse_id, **did)
