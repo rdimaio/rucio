@@ -19,7 +19,6 @@ import logging
 import os
 import queue
 import socket
-import signal
 import threading
 import time
 from collections.abc import Callable, Generator, Iterator, Sequence
@@ -64,7 +63,6 @@ class Daemon(ABC):
         self.partition_wait_time = partition_wait_time
         self.daemon_name = daemon_name
         self.graceful_stop = threading.Event()
-        signal.signal(signal.SIGTERM, self.stop)
         setup_logging(process_name=daemon_name)
 
     @staticmethod

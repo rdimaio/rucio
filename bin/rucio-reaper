@@ -18,6 +18,7 @@
 '''
 
 import argparse
+import signal
 
 from rucio.common.utils import StoreAndDeprecateWarningAction
 from rucio.daemons.reaper.reaper import Reaper
@@ -75,6 +76,7 @@ if __name__ == "__main__":
                     sleep_time=args.sleep_time,
                     auto_exclude_threshold=args.auto_exclude_threshold,
                     auto_exclude_timeout=args.auto_exclude_timeout)
+    signal.signal(signal.SIGTERM, reaper.stop)
     try:
         reaper.run()
     except KeyboardInterrupt:
