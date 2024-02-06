@@ -30,7 +30,6 @@ from rucio.daemons.oauthmanager import oauthmanager
 from rucio.daemons.reaper import dark_reaper
 from rucio.daemons.replicarecoverer import suspicious_replica_recoverer
 from rucio.daemons.tracer import kronos
-from rucio.daemons.transmogrifier import transmogrifier
 from rucio.daemons.common import Daemon
 
 DAEMONS = [
@@ -55,7 +54,6 @@ DAEMONS = [
     dark_reaper,
     suspicious_replica_recoverer,
     kronos,
-    transmogrifier,
 ]
 
 ids = [mod.__name__ for mod in DAEMONS]

@@ -32,7 +32,7 @@ from rucio.core.rule import add_rule
 from rucio.core.rse import add_rse_attribute
 from rucio.core.scope import add_scope
 from rucio.core import subscription as subscription_core
-from rucio.daemons.transmogrifier.transmogrifier import run, get_subscriptions
+from rucio.daemons.transmogrifier.transmogrifier import Transmogrifier
 from rucio.db.sqla.constants import AccountType, DIDType
 from rucio.tests.common import headers, auth, did_name_generator, rse_name_generator
 
@@ -400,11 +400,11 @@ class TestSubscriptionClient:
         subid = rucio_client.add_subscription(name=subscription_name, account='root', filter_={'scope': [tmp_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True},
                                               replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}],
                                               lifetime=None, retroactive=False, dry_run=False, comments='Ni ! Ni!', priority=1)
-        run(threads=1, bulk=1000000, once=True)
+        Transmogrifier(threads=1, chunk_size=1000000, once=True).run()
         rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
         assert len(rules) == 2
         set_new_dids([{'scope': tmp_scope, 'name': dsn}, ], 1)
-        run(threads=1, bulk=1000000, once=True)
+        Transmogrifier(threads=1, chunk_size=1000000, once=True).run()
         rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
         assert len(rules) == 2
 
@@ -428,11 +428,11 @@ class TestSubscriptionClient:
         subid = rucio_client.add_subscription(name=subscription_name, account='root', filter_={'scope': [tmp_scope.external, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True, 'did_type': ['DATASET', ]},
                                               replication_rules=[{'lifetime': 86400, 'rse_expression': rse_expression, 'copies': 2, 'activity': self.activity}],
                                               lifetime=None, retroactive=False, dry_run=False, comments='Ni ! Ni!', priority=1)
-        run(threads=1, bulk=1000000, once=True)
+        Transmogrifier(threads=1, chunk_size=1000000, once=True).run()
         rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
         assert len(rules) == 2
         set_new_dids([{'scope': tmp_scope, 'name': dsn}, ], 1)
-        run(threads=1, bulk=1000000, once=True)
+        Transmogrifier(threads=1, chunk_size=1000000, once=True).run()
         rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
         assert len(rules) == 2
 
@@ -481,7 +481,7 @@ class TestDaemon:
                                               dry_run=False,
                                               comments='Ni ! Ni!',
                                               priority=1)
-        run(threads=1, bulk=1000000, once=True)
+        Transmogrifier(threads=1, chunk_size=1000000, once=True).run()
         rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
         assert len(rules) == 2
         if rules[0]['source_replica_expression']:
@@ -519,7 +519,7 @@ class TestDaemon:
                                       dry_run=False,
                                       comments='Ni ! Ni!',
                                       priority=1)
-        for sub in get_subscriptions():
+        for sub in Transmogrifier._get_subscriptions():
             for rule in loads(sub["replication_rules"]):
                 assert rule["rse_expression"] != rse_expression
 
@@ -558,7 +558,7 @@ class TestDaemon:
                                               dry_run=False,
                                               comments='Ni ! Ni!',
                                               priority=1)
-        run(threads=1, bulk=1000000, once=True)
+        Transmogrifier(threads=1, chunk_size=1000000, once=True).run()
         rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
 
         # Check with split rule
@@ -580,7 +580,7 @@ class TestDaemon:
                                               dry_run=False,
                                               comments='Ni ! Ni!',
                                               priority=1)
-        run(threads=1, bulk=1000000, once=True)
+        Transmogrifier(threads=1, chunk_size=1000000, once=True).run()
         rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
         assert len(rules) == 1
         assert rules[0]['copies'] == 5
@@ -614,7 +614,7 @@ class TestDaemon:
                                               dry_run=False,
                                               comments='Ni ! Ni!',
                                               priority=1)
-        run(threads=1, bulk=1000000, once=True)
+        Transmogrifier(threads=1, chunk_size=1000000, once=True).run()
         rules = [rule for rule in rucio_client.list_did_rules(scope=mock_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
         print(rules)
         assert rules[0]['rse_expression'] == rse_expression
@@ -655,13 +655,13 @@ class TestDaemon:
                                                     priority=1)
         # Since the subscription is wrongly defined, the new dids should not be processed
         with pytest.raises(JSONDecodeError):
-            run(threads=1, bulk=1000000, once=True)
+            Transmogrifier(threads=1, chunk_size=1000000, once=True).run()
         new_dids = [did for did in list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100000, session=None)]
         assert {'scope': mock_scope, 'name': dsn, 'did_type': DIDType.DATASET} in new_dids
         for file_ in files:
             assert {'scope': file_['scope'], 'name': file_['name'], 'did_type': DIDType.FILE} in new_dids
         subscription_core.update_subscription(name=subscription_name, account=root_account, metadata={'filter_': {'scope': [mock_scope, ], 'pattern': '%s.*' % dsn_prefix, 'split_rule': True, 'did_type': ['DATASET', ]}, 'replication_rules': [rule]})
-        run(threads=1, bulk=1000000, once=True)
+        Transmogrifier(threads=1, chunk_size=1000000, once=True).run()
         new_dids = [did for did in list_new_dids(did_type=None, thread=None, total_threads=None, chunk_size=100000, session=None)]
         assert new_dids == []
         subscription_core.delete_subscription(sub_id)
@@ -712,7 +712,7 @@ class TestDaemon:
             add_did(scope=mock_scope, name=dsn[-1], did_type=DIDType.DATASET, account=root_account)
             attach_dids(scope=mock_scope, name=dsn[-1], rse_id=rse3_id, dids=files, account=root_account)
 
-        run(threads=1, bulk=1000000, once=True)
+        Transmogrifier(threads=1, chunk_size=1000000, once=True).run()
         rule_min_size = [rule for rule in rucio_client.list_did_rules(scope=mock_scope.external, name=dsn[0])]
         assert len(rule_min_size) == 2
         rule_max_size = [rule for rule in rucio_client.list_did_rules(scope=mock_scope.external, name=dsn[1])]
@@ -728,7 +728,7 @@ class TestDaemon:
             attach_dids(scope=mock_scope, name=dsn[-1], rse_id=rse3_id, dids=files, account=root_account)
             set_status(mock_scope, dsn[-1], open=False)
 
-        run(threads=1, bulk=1000000, once=True)
+        Transmogrifier(threads=1, chunk_size=1000000, once=True).run()
         rule_min_size = [rule for rule in rucio_client.list_did_rules(scope=mock_scope.external, name=dsn[0])]
         assert len(rule_min_size) == 1
         assert rule_min_size[0]['subscription_id'] == str(subid2)
@@ -783,7 +783,7 @@ class TestDaemon:
         for _ in range(5):
             dsn = '%sdataset-%s' % (dsn_prefix, uuid())
             add_did(scope=tmp_scope, name=dsn, did_type=DIDType.DATASET, account=root_account)
-            run(threads=1, bulk=1000000, once=True)
+            Transmogrifier(threads=1, chunk_size=1000000, once=True).run()
             rules = [rule for rule in rucio_client.list_did_rules(scope=tmp_scope.external, name=dsn) if str(rule['subscription_id']) == str(subid)]
             if rules[0]['source_replica_expression']:
                 rules.reverse()

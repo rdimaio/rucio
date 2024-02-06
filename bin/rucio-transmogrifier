@@ -21,7 +21,7 @@ Transmogrifier (Replication Rule Resolver) Daemon
 import argparse
 import signal
 
-from rucio.daemons.transmogrifier.transmogrifier import run, stop
+from rucio.daemons.transmogrifier.transmogrifier import Transmogrifier
 
 
 def get_parser():
@@ -66,13 +66,11 @@ Check again if there are rules for the DID::
 
 
 if __name__ == "__main__":
-
-    # Bind our callback to the SIGTERM signal and run the daemon:
-    signal.signal(signal.SIGTERM, stop)
-
     parser = get_parser()
     args = parser.parse_args()
+    transmogrifier = Transmogrifier(once=args.run_once, threads=args.threads, chunk_size=args.bulk, sleep_time=args.sleep_time)
+    signal.signal(signal.SIGTERM, transmogrifier.stop)
     try:
-        run(once=args.run_once, threads=args.threads, bulk=args.bulk, sleep_time=args.sleep_time)
+        transmogrifier.run()
     except KeyboardInterrupt:
-        stop()
+        transmogrifier.stop()
