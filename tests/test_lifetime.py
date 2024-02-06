@@ -29,7 +29,7 @@ from rucio.core import config as core_config
 from rucio.core.rule import add_rule, get_rule
 from rucio.core.did import set_metadata, get_metadata
 from rucio.core.lifetime_exception import add_exception
-from rucio.daemons.atropos.atropos import atropos
+from rucio.daemons.atropos.atropos import Atropos
 from rucio.db.sqla.constants import DIDType
 
 
@@ -252,8 +252,8 @@ def test_atropos(root_account, rse_factory, mock_scope, did_factory, rucio_clien
     # Run atropos in dry-run mode to set eol_at on the dataset
     # Dataset 0 should get eol_at
     # Dataset 1 should not get eol_at
-    atropos(date_check=datetime.strptime(check_date, '%Y-%m-%d'), dry_run=True, grace_period=86400,
-            once=True, unlock=False, spread_period=0, purge_replicas=False, sleep_time=60)
+    Atropos(date_check=datetime.strptime(check_date, '%Y-%m-%d'), dry_run=True, grace_period=86400,
+            once=True, unlock=False, spread_period=0, purge_replicas=False, sleep_time=60).run()
 
     for cnt, dataset in enumerate(datasets):
         meta = get_metadata(dataset['scope'], dataset['name'])

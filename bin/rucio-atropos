@@ -22,7 +22,7 @@ import argparse
 import datetime
 import signal
 
-from rucio.daemons.atropos.atropos import run, stop
+from rucio.daemons.atropos.atropos import Atropos
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -44,18 +44,16 @@ def get_parser() -> argparse.ArgumentParser:
 
 
 if __name__ == "__main__":
-
-    # Bind our callback to the SIGTERM signal and run the daemon:
-    signal.signal(signal.SIGTERM, stop)
-
     parser = get_parser()
     args = parser.parse_args()
+    atropos = Atropos(total_workers=args.threads, date_check=args.date_check,
+                      dry_run=args.dry_run, grace_period=args.grace_period,
+                      once=args.run_once, unlock=args.unlock_rules,
+                      spread_period=args.spread_period,
+                      purge_replicas=args.purge_replicas,
+                      sleep_time=args.sleep_time)
+    signal.signal(signal.SIGTERM, atropos.stop)
     try:
-        run(threads=args.threads, date_check=args.date_check,
-            dry_run=args.dry_run, grace_period=args.grace_period,
-            once=args.run_once, unlock=args.unlock_rules,
-            spread_period=args.spread_period,
-            purge_replicas=args.purge_replicas,
-            sleep_time=args.sleep_time)
+        atropos.run()
     except KeyboardInterrupt:
-        stop()
+        atropos.stop()

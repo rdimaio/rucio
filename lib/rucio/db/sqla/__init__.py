@@ -14,9 +14,10 @@
 # limitations under the License.
 
 from sqlalchemy.sql.expression import bindparam, text
+from sqlalchemy.orm import Session, Query
 
 
-def filter_thread_work(session, query, total_threads, thread_id, hash_variable=None):
+def filter_thread_work(session: "Session", query: "Query", total_threads: int, thread_id: int, hash_variable=None) -> "Query":
     """ Filters a query to partition thread workloads based on the thread id and total number of threads """
     if thread_id is not None and total_threads is not None and (total_threads - 1) > 0:
         if session.bind.dialect.name == 'oracle':

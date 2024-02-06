@@ -64,7 +64,7 @@ from rucio.db.sqla.constants import (LockState, ReplicaState, RuleState, RuleGro
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 
 if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
+    from sqlalchemy.orm import Session, Query
 
 
 REGION = make_region_memcached(expiration_time=900)
@@ -1754,7 +1754,7 @@ def get_updated_dids(total_workers, worker_number, limit=100, blocked_dids=[], *
 
 
 @read_session
-def get_rules_beyond_eol(date_check, worker_number, total_workers, *, session: "Session"):
+def get_rules_beyond_eol(date_check: datetime, worker_number: int, total_workers: int, *, session: "Session") -> list["Query"]:
     """
     Get rules which have eol_at before a certain date.
 

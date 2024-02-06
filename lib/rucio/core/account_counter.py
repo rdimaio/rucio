@@ -22,7 +22,7 @@ from rucio.db.sqla import models, filter_thread_work
 from rucio.db.sqla.session import read_session, transactional_session
 
 if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
+    from sqlalchemy.orm import Session, Query
 
 MAX_COUNTERS = 10
 
@@ -82,7 +82,7 @@ def del_counter(rse_id, account, *, session: "Session"):
 
 
 @read_session
-def get_updated_account_counters(total_workers, worker_number, *, session: "Session"):
+def get_updated_account_counters(total_workers, worker_number, *, session: "Session") -> list["Query"]:
     """
     Get updated rse_counters.
 
