@@ -21,14 +21,14 @@ Automatix (Dataset injector) Daemon
 import argparse
 import signal
 
-from rucio.daemons.automatix.automatix import run, stop
+from rucio.daemons.automatix.automatix import Automatix
 
 
 def get_parser():
     """
     Returns the argparse parser.
     """
-    parser = argparse.ArgumentParser(description="Automatix is a daemon used to inject random generated files to an RSE. It is used to continuosly check that an RSE is reachable and operating as spected.")
+    parser = argparse.ArgumentParser(description="Automatix is a daemon used to inject random generated files to an RSE. It is used to continuosly check that an RSE is reachable and operating as expected.")
     parser.add_argument("--run-once", action="store_true", default=False, help='Runs one loop iteration')
     parser.add_argument("--input-file", action="store", default="/opt/rucio/etc/automatix.json", type=str, help='Automatix configuration')
     parser.add_argument("--threads-per-process", action="store", default=1, type=int, help='Total number of workers per process')
@@ -37,15 +37,12 @@ def get_parser():
 
 
 if __name__ == "__main__":
-
-    # Bind our callback to the SIGTERM signal and run the daemon:
-    signal.signal(signal.SIGTERM, stop)
-
     parser = get_parser()
     args = parser.parse_args()
-    print('Start Automatix')
+    automatix = Automatix(total_workers=args.threads_per_process, once=args.run_once, input_file=args.input_file,
+                          sleep_time=args.sleep_time)
+    signal.signal(signal.SIGTERM, automatix.stop)
     try:
-        run(total_workers=args.threads_per_process, once=args.run_once, inputfile=args.input_file,
-            sleep_time=args.sleep_time)
+        automatix.run()
     except KeyboardInterrupt:
-        stop()
+        automatix.stop()

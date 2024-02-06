@@ -19,7 +19,6 @@ import pytest
 
 import rucio.db.sqla.util
 from rucio.common import exception
-from rucio.daemons.automatix import automatix
 from rucio.daemons.badreplicas import minos, minos_temporary_expiration, necromancer
 from rucio.daemons.c3po import c3po
 from rucio.daemons.cache import consumer
@@ -35,7 +34,6 @@ from rucio.daemons.transmogrifier import transmogrifier
 from rucio.daemons.common import Daemon
 
 DAEMONS = [
-    automatix,
     minos,
     minos_temporary_expiration,
     necromancer,

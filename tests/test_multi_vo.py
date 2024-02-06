@@ -54,7 +54,7 @@ from rucio.core.rse import get_rses_with_attribute_value, get_rse_id, get_rse_vo
 from rucio.core.rse_expression_parser import parse_expression
 from rucio.core.rule import add_rule
 from rucio.core.vo import map_vo
-from rucio.daemons.automatix.automatix import automatix
+from rucio.daemons.automatix.automatix import Automatix
 from rucio.db.sqla import models, session as db_session
 from rucio.tests.common import execute, headers, hdrdict, vohdr, auth, loginhdr, get_long_vo
 from .test_authentication import PRIVATE_KEY, PUBLIC_KEY
@@ -1022,11 +1022,11 @@ class TestMultiVODaemons:
         config_set("automatix", "rses", shr_rse)
         config_set("automatix", "scope", shr_scope)
 
-        automatix(
-            inputfile='/opt/rucio/etc/automatix.json',
+        Automatix(
+            input_file='/opt/rucio/etc/automatix.json',
             sleep_time=10,
             once=True,
-        )
+        ).run()
 
         did_list_tst = list(did_client.list_dids(shr_scope, {}))
         did_list_new = list(list_dids(shr_scope, {}, vo=second_vo))

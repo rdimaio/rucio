@@ -25,7 +25,7 @@ from rucio.common.config import config_add_section, config_has_section, config_s
 from rucio.common.types import InternalScope
 from rucio.core.did import list_dids, list_files, get_metadata
 from rucio.core.scope import add_scope
-from rucio.daemons.automatix.automatix import automatix
+from rucio.daemons.automatix.automatix import Automatix
 from rucio.rse import rsemanager as rsemgr
 from rucio.tests.common import scope_name_generator
 
@@ -62,11 +62,11 @@ def test_automatix(vo, root_account, rse_factory):
     with tempfile.NamedTemporaryFile("w") as file_:
         json.dump(test_dict, file_)
         file_.flush()
-        automatix(
-            inputfile=file_.name,
+        Automatix(
+            input_file=file_.name,
             sleep_time=10,
             once=True,
-        )
+        ).run()
         dids = [
             did
             for did in list_dids(
