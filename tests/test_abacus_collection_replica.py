@@ -21,7 +21,7 @@ from rucio.common.schema import get_schema_value
 from rucio.common.types import InternalAccount
 from rucio.core.did import add_did, get_did
 from rucio.core.replica import delete_replicas, get_cleaned_updated_collection_replicas
-from rucio.daemons.abacus import collection_replica
+from rucio.daemons.abacus.collection_replica import AbacusCollectionReplica
 from rucio.daemons.judge import cleaner
 import rucio.daemons.reaper.reaper
 from rucio.daemons.reaper.reaper import Reaper
@@ -36,7 +36,7 @@ class TestAbacusCollectionReplica():
 
     def test_abacus_collection_replica_cleanup(self, vo, mock_scope, rse_factory, did_client):
         """ ABACUS (COLLECTION REPLICA): Test if the cleanup procedure works correctly. """
-        collection_replica.run(once=True)
+        AbacusCollectionReplica(once=True).run()
         db_session = session.get_session()
         rse1, rse_id1 = rse_factory.make_rse()
         rse2, rse_id2 = rse_factory.make_rse()
@@ -91,7 +91,7 @@ class TestAbacusCollectionReplica():
         assert str(dataset_replica['state']) == 'UNAVAILABLE'
 
         # Run Abacus
-        collection_replica.run(once=True)
+        AbacusCollectionReplica(once=True).run()
 
         # Check dataset replica after abacus - abacus should update the collection_replica table from updated_col_rep
         dataset_replica = [replica for replica in rucio_client.list_dataset_replicas(mock_scope.external, dataset)][0]
@@ -106,7 +106,7 @@ class TestAbacusCollectionReplica():
         delete_replicas(rse_id=rse_id, files=[{'name': files[0]['name'], 'scope': mock_scope}])
         activity = get_schema_value('ACTIVITY')['enum'][0]
         rucio_client.add_replication_rule([{'scope': mock_scope.external, 'name': dataset}], 1, rse, lifetime=-1, activity=activity)
-        collection_replica.run(once=True)
+        AbacusCollectionReplica(once=True).run()
         dataset_replica = [replica for replica in rucio_client.list_dataset_replicas(mock_scope.external, dataset)][0]
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['bytes'] == len(files) * file_sizes
@@ -126,7 +126,7 @@ class TestAbacusCollectionReplica():
             reaper.run()
         activity = get_schema_value('ACTIVITY')['enum'][0]
         rucio_client.add_replication_rule([{'scope': mock_scope.external, 'name': dataset}], 1, rse, lifetime=-1, activity=activity)
-        collection_replica.run(once=True)
+        AbacusCollectionReplica(once=True).run()
         dataset_replica = [replica for replica in rucio_client.list_dataset_replicas(mock_scope.external, dataset)]
         assert dataset_replica[0]['length'] == 0
         assert dataset_replica[0]['available_length'] == 0
@@ -159,7 +159,7 @@ class TestAbacusCollectionReplica():
         assert str(dataset_replica['state']) == 'UNAVAILABLE'
 
         # Run Abacus
-        collection_replica.run(once=True)
+        AbacusCollectionReplica(once=True).run()
 
         # Check dataset replica after abacus - abacus should update the collection_replica table from updated_col_rep
         dataset_replica = [replica for replica in rucio_client.list_dataset_replicas(mock_scope.external, dataset)][0]
@@ -174,7 +174,7 @@ class TestAbacusCollectionReplica():
         delete_replicas(rse_id=rse_id, files=[{'name': files[0]['name'], 'scope': mock_scope}])
         activity = get_schema_value('ACTIVITY')['enum'][0]
         rucio_client.add_replication_rule([{'scope': mock_scope.external, 'name': dataset}], 1, rse, lifetime=-1, activity=activity)
-        collection_replica.run(once=True)
+        AbacusCollectionReplica(once=True).run()
         dataset_replica = [replica for replica in rucio_client.list_dataset_replicas(mock_scope.external, dataset)][0]
         assert dataset_replica['length'] == len(files)
         assert dataset_replica['bytes'] == len(files) * file_sizes

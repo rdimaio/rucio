@@ -21,7 +21,7 @@ Abacus collection replica is a daemon to update collection replicas.
 import argparse
 import signal
 
-from rucio.daemons.abacus.collection_replica import run, stop
+from rucio.daemons.abacus.collection_replica import AbacusCollectionReplica
 
 
 def get_parser():
@@ -37,11 +37,11 @@ def get_parser():
 
 
 if __name__ == "__main__":
-
-    signal.signal(signal.SIGTERM, stop)
     parser = get_parser()
     args = parser.parse_args()
+    abacus_collection_replica = AbacusCollectionReplica(once=args.run_once, threads=args.threads, sleep_time=args.sleep_time, limit=args.limit)
+    signal.signal(signal.SIGTERM, abacus_collection_replica.stop)
     try:
-        run(once=args.run_once, threads=args.threads, sleep_time=args.sleep_time, limit=args.limit)
+        abacus_collection_replica.run()
     except KeyboardInterrupt:
-        stop()
+        abacus_collection_replica.stop()

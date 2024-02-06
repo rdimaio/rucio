@@ -3040,12 +3040,12 @@ def list_datasets_per_rse(rse_id, filters=None, limit=None, *, session: "Session
 
 
 @transactional_session
-def get_cleaned_updated_collection_replicas(total_workers, worker_number, limit=None, *, session: "Session"):
+def get_cleaned_updated_collection_replicas(total_workers: int, worker_number: int, limit: int = None, *, session: "Session") -> list[dict]:
     """
     Get update request for collection replicas.
     :param total_workers:      Number of total workers.
     :param worker_number:      id of the executing worker.
-    :param limit:              Maximum numberws to return.
+    :param limit:              Maximum numbers to return.
     :param session:            Database session in use.
     :returns:                  List of update requests for collection replicas.
     """

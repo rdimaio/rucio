@@ -16,98 +16,48 @@
 """
 Abacus-Collection-Replica is a daemon to update collection replica.
 """
-import functools
 import logging
-import threading
 import time
-from typing import TYPE_CHECKING
+from typing import Any
 
-import rucio.db.sqla.util
-from rucio.common import exception
-from rucio.common.logging import setup_logging
 from rucio.core.replica import get_cleaned_updated_collection_replicas, update_collection_replica
-from rucio.daemons.common import run_daemon
-
-if TYPE_CHECKING:
-    from types import FrameType
-    from typing import Optional
-
-graceful_stop = threading.Event()
-DAEMON_NAME = 'abacus-collection-replica'
+from rucio.daemons.common import Daemon, HeartbeatHandler
 
 
-def collection_replica_update(once=False, limit=1000, sleep_time=10):
-    """
-    Main loop to check and update the collection replicas.
-    """
-    run_daemon(
-        once=once,
-        graceful_stop=graceful_stop,
-        executable=DAEMON_NAME,
-        partition_wait_time=1,
-        sleep_time=sleep_time,
-        run_once_fnc=functools.partial(
-            run_once,
-            limit=limit,
-        ),
-    )
+class AbacusCollectionReplica(Daemon):
+    def __init__(self, limit: int = 1000, **_kwargs) -> None:
+        """
+        :param limit: Amount of collection replicas to retrieve per chunk.
+        """
+        super().__init__(daemon_name="abacus-collection-replica", **_kwargs)
+        self.limit = limit
 
-
-def run_once(heartbeat_handler, limit, **_kwargs):
-    worker_number, total_workers, logger = heartbeat_handler.live()
-    # Select a bunch of collection replicas for to update for this worker
-    start = time.time()  # NOQA
-    replicas = get_cleaned_updated_collection_replicas(total_workers=total_workers - 1,
-                                                       worker_number=worker_number,
-                                                       limit=limit)
-
-    logger(logging.DEBUG, 'Index query time %f size=%d' % (time.time() - start, len(replicas)))
-    # If the list is empty, sent the worker to sleep
-    if not replicas:
-        logger(logging.INFO, 'did not get any work')
-        must_sleep = True
-        return must_sleep
-
-    for replica in replicas:
+    def _run_once(self, heartbeat_handler: "HeartbeatHandler", **_kwargs) -> tuple[bool, Any]:
         worker_number, total_workers, logger = heartbeat_handler.live()
-        if graceful_stop.is_set():
-            break
-        start_time = time.time()
-        update_collection_replica(replica)
-        logger(logging.DEBUG, 'update of collection replica "%s" took %f' % (replica['id'], time.time() - start_time))
+        must_sleep = False
 
-    must_sleep = False
-    if limit and len(replicas) < limit:
-        must_sleep = True
-    return must_sleep
+        # Select a bunch of collection replicas for to update for this worker
+        start = time.time()  # NOQA
+        replicas = get_cleaned_updated_collection_replicas(total_workers=total_workers - 1,
+                                                           worker_number=worker_number,
+                                                           limit=self.limit)
 
+        logger(logging.DEBUG, 'Index query time %f size=%d' % (time.time() - start, len(replicas)))
+        # If the list is empty, sent the worker to sleep
+        if not replicas:
+            logger(logging.INFO, 'did not get any work')
+            must_sleep = True
+            return must_sleep, None
 
-def stop(signum: "Optional[int]" = None, frame: "Optional[FrameType]" = None) -> None:
-    """
-    Graceful exit.
-    """
+        for replica in replicas:
+            worker_number, total_workers, logger = heartbeat_handler.live()
+            if self.graceful_stop.is_set():
+                break
+            start_time = time.time()
+            update_collection_replica(replica)
+            logger(logging.DEBUG, 'update of collection replica "%s" took %f' % (replica['id'], time.time() - start_time))
 
-    graceful_stop.set()
+        if self.limit and len(replicas) < self.limit:
+            must_sleep = True
 
-
-def run(once=False, threads=1, sleep_time=10, limit=1000):
-    """
-    Starts up the Abacus-Collection-Replica threads.
-    """
-    setup_logging(process_name=DAEMON_NAME)
-
-    if rucio.db.sqla.util.is_old_db():
-        raise exception.DatabaseException('Database was not updated, daemon won\'t start')
-
-    if once:
-        logging.info('main: executing one iteration only')
-        collection_replica_update(once)
-    else:
-        logging.info('main: starting threads')
-        threads = [threading.Thread(target=collection_replica_update, kwargs={'once': once, 'sleep_time': sleep_time, 'limit': limit})
-                   for _ in range(0, threads)]
-        [t.start() for t in threads]
-        logging.info('main: waiting for interrupts')
-        # Interruptible joins require a timeout.
-        while threads[0].is_alive():
-            [t.join(timeout=3.14) for t in threads]
+        return must_sleep, None
