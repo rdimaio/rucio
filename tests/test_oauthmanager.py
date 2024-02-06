@@ -22,7 +22,7 @@ from oic import rndstr
 from sqlalchemy import and_, or_
 from sqlalchemy.sql.expression import true
 
-from rucio.daemons.oauthmanager.oauthmanager import run, stop
+from rucio.daemons.oauthmanager.oauthmanager import OAuthManager
 from rucio.db.sqla import models
 from rucio.db.sqla.session import get_session
 
@@ -236,10 +236,11 @@ class TestOAuthManager:
         assert get_token_count(account) == 21
 
         # Run replica recoverer once
+        oauthmanager = OAuthManager(once=True, max_rows=100)
         try:
-            run(once=True, max_rows=100)
+            oauthmanager.run()
         except KeyboardInterrupt:
-            stop()
+            oauthmanager.stop()
 
         # Checking the outcome
         assert get_oauth_session_param_count(account) == 2

@@ -24,7 +24,7 @@ OAuth Manager is a daemon which is reponsible for:
 import argparse
 import signal
 
-from rucio.daemons.oauthmanager.oauthmanager import run, stop
+from rucio.daemons.oauthmanager.oauthmanager import OAuthManager
 
 
 def get_parser():
@@ -54,11 +54,12 @@ can be specified by 'maxrows' parameter.
 
 
 if __name__ == "__main__":
-    signal.signal(signal.SIGTERM, stop)
-    PARSER = get_parser()
-    ARGS = PARSER.parse_args()
+    parser = get_parser()
+    args = parser.parse_args()
+    oauthmanager = OAuthManager(once=args.run_once, max_rows=args.max_rows, total_workers=args.threads,
+                                sleep_time=args.sleep_time)
+    signal.signal(signal.SIGTERM, oauthmanager.stop)
     try:
-        run(once=ARGS.run_once, max_rows=ARGS.max_rows, threads=ARGS.threads,
-            sleep_time=ARGS.sleep_time)
+        oauthmanager.run()
     except KeyboardInterrupt:
-        stop()
+        oauthmanager.stop()
