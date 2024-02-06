@@ -17,7 +17,7 @@ import pytest
 
 from rucio.common.schema import get_schema_value
 from rucio.core.rse import get_rse_usage
-from rucio.daemons.abacus.rse import rse_update
+from rucio.daemons.abacus.rse import AbacusRSE
 from rucio.daemons.judge import cleaner
 from rucio.daemons.reaper.reaper import Reaper
 from rucio.db.sqla import models
@@ -42,7 +42,7 @@ class TestAbacusRSE():
         dids = did_factory.upload_test_dataset(rse_name=rse, scope=mock_scope.external, size=file_sizes, nb_files=nfiles)
         files = [{'scope': did['did_scope'], 'name': did['did_name']} for did in dids]
         dataset = dids[0]['dataset_name']
-        rse_update(once=True)
+        AbacusRSE(once=True).run()
         rse_usage = get_rse_usage(rse_id=rse_id)[0]
         assert rse_usage['used'] == len(files) * file_sizes
         rse_usage_from_rucio = get_rse_usage(rse_id=rse_id, source='rucio')[0]
@@ -62,7 +62,7 @@ class TestAbacusRSE():
         else:
             reaper = Reaper(once=True, include_rses=rse, greedy=True)
             reaper.run()
-        rse_update(once=True)
+        AbacusRSE(once=True).run()
         rse_usage = get_rse_usage(rse_id=rse_id)[0]
         assert rse_usage['used'] == 0
         rse_usage_from_rucio = get_rse_usage(rse_id=rse_id, source='rucio')[0]

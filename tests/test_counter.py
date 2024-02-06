@@ -20,7 +20,7 @@ import pytest
 from rucio.core import account_counter, rse_counter
 from rucio.core.account import get_usage
 from rucio.daemons.abacus.account import AbacusAccount
-from rucio.daemons.abacus.rse import rse_update
+from rucio.daemons.abacus.rse import AbacusRSE
 from rucio.db.sqla import models
 
 
@@ -30,7 +30,7 @@ class TestCoreRSECounter:
     def test_inc_dec_get_counter(self, rse_factory):
         """ RSE COUNTER (CORE): Increase, decrease and get counter """
         _, rse_id = rse_factory.make_mock_rse()
-        rse_update(once=True)
+        AbacusRSE(once=True).run()
         rse_counter.del_counter(rse_id=rse_id)
         rse_counter.add_counter(rse_id=rse_id)
         cnt = rse_counter.get_counter(rse_id=rse_id)
@@ -40,7 +40,7 @@ class TestCoreRSECounter:
         count, sum_ = 0, 0
         for i in range(10):
             rse_counter.increase(rse_id=rse_id, files=1, bytes_=2.147e+9)
-            rse_update(once=True)
+            AbacusRSE(once=True).run()
             count += 1
             sum_ += 2.147e+9
             cnt = rse_counter.get_counter(rse_id=rse_id)
@@ -49,7 +49,7 @@ class TestCoreRSECounter:
 
         for i in range(4):
             rse_counter.decrease(rse_id=rse_id, files=1, bytes_=2.147e+9)
-            rse_update(once=True)
+            AbacusRSE(once=True).run()
             count -= 1
             sum_ -= 2.147e+9
             cnt = rse_counter.get_counter(rse_id=rse_id)
@@ -58,7 +58,7 @@ class TestCoreRSECounter:
 
         for i in range(5):
             rse_counter.increase(rse_id=rse_id, files=1, bytes_=2.147e+9)
-            rse_update(once=True)
+            AbacusRSE(once=True).run()
             count += 1
             sum_ += 2.147e+9
             cnt = rse_counter.get_counter(rse_id=rse_id)
@@ -67,7 +67,7 @@ class TestCoreRSECounter:
 
         for i in range(8):
             rse_counter.decrease(rse_id=rse_id, files=1, bytes_=2.147e+9)
-            rse_update(once=True)
+            AbacusRSE(once=True).run()
             count -= 1
             sum_ -= 2.147e+9
             cnt = rse_counter.get_counter(rse_id=rse_id)

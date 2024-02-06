@@ -855,7 +855,7 @@ class LFNS2PFNS(ErrorHandlingMethodView):
           401:
             description: Invalid Auth Token
           404:
-            description: RSE not found or RSE Protocol or RSE Protocl Domain not supported
+            description: RSE not found or RSE Protocol or RSE Protocol Domain not supported
           406:
             description: Not acceptable
         """

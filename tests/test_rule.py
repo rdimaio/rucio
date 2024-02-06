@@ -43,7 +43,7 @@ from rucio.core.rse_counter import get_counter as get_rse_counter
 from rucio.core.rule import add_rule, get_rule, delete_rule, add_rules, update_rule, reduce_rule, move_rule, list_rules
 from rucio.core.scope import add_scope
 from rucio.daemons.abacus.account import AbacusAccount
-from rucio.daemons.abacus.rse import rse_update
+from rucio.daemons.abacus.rse import AbacusRSE
 from rucio.daemons.judge.evaluator import re_evaluator
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import DIDType, OBSOLETE, RuleState, LockState
@@ -672,7 +672,7 @@ class TestCore:
     def test_rse_counter_unavailable_replicas(self, mock_scope, did_factory, jdoe_account):
         """ REPLICATION RULE (CORE): Test if creating UNAVAILABLE replicas updates the RSE Counter correctly"""
 
-        rse_update(once=True)
+        AbacusRSE(once=True).run()
         rse_counter_before = get_rse_counter(self.rse2_id)
 
         files = create_files(3, mock_scope, self.rse1_id, bytes_=100)
@@ -683,7 +683,7 @@ class TestCore:
         add_rule(dids=[dataset], account=jdoe_account, copies=1, rse_expression=self.rse2, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
         # Check if the rse has been updated correctly
-        rse_update(once=True)
+        AbacusRSE(once=True).run()
         rse_counter_after = get_rse_counter(self.rse2_id)
         assert (rse_counter_before['bytes'] + 3 * 100 == rse_counter_after['bytes'])
         assert (rse_counter_before['files'] + 3 == rse_counter_after['files'])

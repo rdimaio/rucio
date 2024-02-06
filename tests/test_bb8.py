@@ -25,7 +25,7 @@ from rucio.core.replica import add_replicas
 from rucio.core.rse import add_rse_attribute, fill_rse_expired, get_rse_usage, set_rse_usage
 from rucio.core.rule import add_rule, get_rule, delete_rule, update_rule
 from rucio.core.rse_expression_parser import REGION
-from rucio.daemons.abacus.rse import run as run_abacus
+from rucio.daemons.abacus.rse import AbacusRSE
 from rucio.daemons.bb8.common import rebalance_rule
 from rucio.daemons.bb8.bb8 import run as bb8_run
 from rucio.daemons.judge.cleaner import rule_cleaner
@@ -229,7 +229,7 @@ def test_bb8_full_workflow(vo, root_account, jdoe_account, rse_factory, mock_sco
     set_rse_usage(rse_id=rse2_id, source='min_free_space', used=1 * base_unit, free=1 * base_unit, session=None)
     set_rse_usage(rse_id=rse2_id, source='storage', used=6 * base_unit, free=5 * base_unit, session=None)
 
-    run_abacus(once=True, threads=1, fill_history_table=False, sleep_time=10)
+    AbacusRSE(once=True, threads=1, fill_history_table=False, sleep_time=10).run()
     # Summary :
     # RSE 1 : 1500 GB primary + 1 B secondary
     tot_space = [src for src in get_rse_usage(rse1_id) if src['source'] == 'rucio'][0]
