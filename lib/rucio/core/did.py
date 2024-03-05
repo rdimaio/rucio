@@ -37,7 +37,7 @@ from rucio.core.message import add_message
 from rucio.core.monitor import MetricManager
 from rucio.core.naming_convention import validate_name
 from rucio.db.sqla import models, filter_thread_work
-from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, RuleState, BadFilesStatus
+from rucio.db.sqla.constants import DIDType, DIDReEvaluation, DIDAvailability, OBSOLETE, RuleState, BadFilesStatus
 from rucio.db.sqla.session import read_session, transactional_session, stream_session
 from rucio.db.sqla.util import temp_table_mngr
 
@@ -1182,29 +1182,42 @@ def delete_dids(
             models.ReplicationRule.rse_expression,
             models.ReplicationRule.locks_ok_cnt,
             models.ReplicationRule.locks_replicating_cnt,
-            models.ReplicationRule.locks_stuck_cnt
+            models.ReplicationRule.locks_stuck_cnt,
+            temp_table.scope.label("did_scope"),
+            temp_table.name.label("did_name")
         ).join_from(
             temp_table,
             models.ReplicationRule,
             and_(models.ReplicationRule.scope == temp_table.scope,
                  models.ReplicationRule.name == temp_table.name)
         )
-        for (rule_id, scope, name, rse_expression, locks_ok_cnt, locks_replicating_cnt, locks_stuck_cnt) in session.execute(stmt):
-            logger(logging.DEBUG, 'Removing rule %s for did %s:%s on RSE-Expression %s' % (str(rule_id), scope, name, rse_expression))
-
-            # Propagate purge_replicas from did to rules
-            if (scope, name) in not_purge_replicas:
-                purge_replicas = False
+        for (rule_id, scope, name, rse_expression, locks_ok_cnt, locks_replicating_cnt, locks_stuck_cnt, did_scope, did_name) in session.execute(stmt):
+            if rule_id is None:
+                logger(logging.DEBUG, 'Setting tombstones for replicas of DID %s:%s with no rule.' % (did_scope, did_name))
+                stmt = update(
+                    models.RSEFileAssociation
+                ).filter(
+                    models.RSEFileAssociation.scope == did_scope,
+                    models.RSEFileAssociation.name == did_name
+                ).values(
+                    tombstone=OBSOLETE
+                )
+                session.execute(stmt)
             else:
-                purge_replicas = True
-            if expire_rules and locks_ok_cnt + locks_replicating_cnt + locks_stuck_cnt > int(config_get_int('undertaker', 'expire_rules_locks_size', default=10000, session=session)):
-                # Expire the rule (soft=True)
-                rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, soft=True, delete_parent=True, nowait=True, session=session)
-                # Update expiration of did
-                set_metadata(scope=scope, name=name, key='lifetime', value=3600 * 24, session=session)
-                skip_deletion = True
-            else:
-                rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, delete_parent=True, nowait=True, session=session)
+                logger(logging.DEBUG, 'Removing rule %s for did %s:%s on RSE-Expression %s' % (str(rule_id), scope, name, rse_expression))
+                # Propagate purge_replicas from did to rules
+                if (scope, name) in not_purge_replicas:
+                    purge_replicas = False
+                else:
+                    purge_replicas = True
+                if expire_rules and locks_ok_cnt + locks_replicating_cnt + locks_stuck_cnt > int(config_get_int('undertaker', 'expire_rules_locks_size', default=10000, session=session)):
+                    # Expire the rule (soft=True)
+                    rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, soft=True, delete_parent=True, nowait=True, session=session)
+                    # Update expiration of did
+                    set_metadata(scope=scope, name=name, key='lifetime', value=3600 * 24, session=session)
+                    skip_deletion = True
+                else:
+                    rucio.core.rule.delete_rule(rule_id=rule_id, purge_replicas=purge_replicas, delete_parent=True, nowait=True, session=session)
 
     if skip_deletion:
         return
