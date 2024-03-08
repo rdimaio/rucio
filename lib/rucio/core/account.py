@@ -17,7 +17,7 @@ from datetime import datetime
 from enum import Enum
 from re import match
 from traceback import format_exc
-from typing import TYPE_CHECKING, Any, cast, Iterator, Optional
+from typing import TYPE_CHECKING, Any, Iterator, Optional
 
 from sqlalchemy import select, and_
 from sqlalchemy.exc import IntegrityError
@@ -245,7 +245,7 @@ def list_identities(account: InternalAccount, *, session: "Session") -> list[Ide
     ).where(
         models.IdentityAccountAssociation.account == account
     )
-    return [cast(IdentityDict, row._asdict()) for row in session.execute(query)]
+    return [row._asdict() for row in session.execute(query)]
 
 
 @read_session
@@ -275,7 +275,7 @@ def list_account_attributes(account: InternalAccount, *, session: "Session") -> 
     ).where(
         models.AccountAttrAssociation.account == account
     )
-    return [cast(AccountAttributesDict, row._asdict()) for row in session.execute(query)]
+    return [row._asdict() for row in session.execute(query)]
 
 
 @read_session
@@ -374,7 +374,7 @@ def get_usage(rse_id: str, account: InternalAccount, *, session: "Session") -> U
         models.AccountUsage.account == account
     )
     try:
-        return cast(UsageDict, session.execute(query).one()._asdict())
+        return session.execute(query).one()._asdict()
     except exc.NoResultFound:
         return UsageDict({'bytes': 0, 'files': 0, 'updated_at': None})
 
@@ -395,7 +395,7 @@ def get_all_rse_usages_per_account(account: InternalAccount, *, session: "Sessio
         models.AccountUsage.account == account
     )
     try:
-        return [cast(AccountUsageModelDict, result.to_dict()) for result in session.execute(query).scalars()]
+        return [result.to_dict() for result in session.execute(query).scalars()]
     except exc.NoResultFound:
         return []
 
@@ -421,6 +421,6 @@ def get_usage_history(rse_id: str, account: InternalAccount, *, session: "Sessio
         models.AccountUsageHistory.updated_at
     )
     try:
-        return [cast(UsageDict, row._asdict()) for row in session.execute(query)]
+        return [row._asdict() for row in session.execute(query)]
     except exc.NoResultFound:
         raise exception.CounterNotFound('No usage can be found for account %s on RSE %s' % (account, rucio.core.rse.get_rse_name(rse_id=rse_id, session=session)))
