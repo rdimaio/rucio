@@ -374,9 +374,9 @@ def get_usage(rse_id: str, account: InternalAccount, *, session: "Session") -> U
         models.AccountUsage.account == account
     )
     try:
-        return cast(UsageDict, session.execute(query).one()._asdict())
+        return UsageDict(**session.execute(query).one()._asdict())
     except exc.NoResultFound:
-        return {'bytes': 0, 'files': 0, 'updated_at': None}
+        return UsageDict({'bytes': 0, 'files': 0, 'updated_at': None})
 
 
 @read_session
