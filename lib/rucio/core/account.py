@@ -376,7 +376,7 @@ def get_usage(rse_id: str, account: InternalAccount, *, session: "Session") -> U
     try:
         return cast(UsageDict, session.execute(query).one()._asdict())
     except exc.NoResultFound:
-        return UsageDict({'bytes': 0, 'files': 0, 'updated_at': None})
+        return {'bytes': 0, 'files': 0, 'updated_at': None}
 
 
 @read_session
