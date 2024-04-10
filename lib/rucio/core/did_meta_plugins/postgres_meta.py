@@ -82,8 +82,8 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
 
         # set search_path to include database schema by default
         cur = self.client.cursor()
-        statement = "SET search_path TO {};".format(db_schema)
-        cur.execute(statement)
+        statement = "SET search_path TO %s;"
+        cur.execute(statement, (db_schema,))
         cur.close()
 
         if not table_is_managed:                    # not managed by Rucio, so just verify table schema
@@ -128,9 +128,9 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         """
         # Check mandatory columns are of right data type and have the right nullable qualifier.
         statement = "SELECT column_name, data_type, is_nullable " \
-                    "FROM INFORMATION_SCHEMA.COLUMNS where table_name = '{}';".format(self.table)
+                    "FROM INFORMATION_SCHEMA.COLUMNS where table_name = %s;"
         cur = self.client.cursor()
-        cur.execute(statement)
+        cur.execute(statement, (self.table, ))
         existing_table_columns = cur.fetchall()
         cur.close()
 
@@ -154,9 +154,9 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
                     "FROM pg_constraint con " \
                     "INNER JOIN pg_class rel ON rel.oid = con.conrelid " \
                     "INNER JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace " \
-                    "WHERE rel.relname = '{}';".format(self.table)
+                    "WHERE rel.relname = %s;"
         cur = self.client.cursor()
-        cur.execute(statement)
+        cur.execute(statement, (self.table, ))
         existing_table_constraints = cur.fetchall()  # list of (constraint_type, [columns])
         cur.close()
 
@@ -170,9 +170,9 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
                         constraint, len(existing_table_constraints)))
 
     def _drop_metadata_table(self):
-        statement = "DROP TABLE IF EXISTS {};".format(self.table)
+        statement = "DROP TABLE IF EXISTS %s;"
         cur = self.client.cursor()
-        cur.execute(statement)
+        cur.execute(statement, (self.table,))
         cur.close()
         self.client.commit()
 
@@ -185,10 +185,9 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         :param session: The database session in use
         :returns: the metadata for the did
         """
-        statement = "SELECT data from {} ".format(self.table) + \
-                    "WHERE scope='{}' AND name='{}';".format(scope.internal, name)
+        statement = "SELECT data from %(table)s WHERE scope='%(scope)s' AND name='%(name)s';"
         cur = self.client.cursor()
-        cur.execute(statement)
+        cur.execute(statement, {'table': self.table, 'scope': scope.internal, 'name': name})
         metadata = cur.fetchone()
         cur.close()
 
@@ -221,11 +220,11 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         :param session: The database session in use
         """
         # upsert metadata
-        statement = "INSERT INTO {} (scope, name, vo, data) ".format(self.table) + \
-                    "VALUES ('{}', '{}', '{}', '{}') ".format(scope.external, name, scope.vo, json.dumps(metadata)) + \
-                    "ON CONFLICT (scope, name) DO UPDATE set data = {}.data || EXCLUDED.data;".format(self.table)
+        statement = "INSERT INTO %(table)s (scope, name, vo, data) " + \
+                    "VALUES ('%(scope)s', '%(name)s', '%(vo)s', '%(data)s') " + \
+                    "ON CONFLICT (scope, name) DO UPDATE set data = %(table)s.data || EXCLUDED.data;"
         cur = self.client.cursor()
-        cur.execute(statement)
+        cur.execute(statement, {'table': self.table, 'scope': scope.external, 'name': name, 'vo': scope.vo, 'data': json.dumps(metadata)})
         cur.close()
         self.client.commit()
 
@@ -238,10 +237,9 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
         :param key: the key to be deleted
         :param session: the database session in use
         """
-        statement = "UPDATE {} ".format(self.table) + \
-                    "SET data = {}.data - '{}';".format(self.table, key)
+        statement = "UPDATE %(table)s SET data = %(table)s.data - '%(key)s';"
         cur = self.client.cursor()
-        cur.execute(statement)
+        cur.execute(statement, {'table': self.table, 'key': key})
         cur.close()
         self.client.commit()
 
@@ -276,11 +274,14 @@ class ExternalPostgresJSONDidMeta(DidMetaPlugin):
                 "'{}' metadata module does not currently support recursive searches".format(self.plugin_name.lower())
             )
 
-        statement = "SELECT * FROM {} WHERE {} ".format(self.table, postgres_query_str)
-        if limit:
-            statement += "LIMIT {}".format(limit)
         cur = self.client.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute(statement)
+
+        statement = "SELECT * FROM %s WHERE %s "
+        if limit:
+            statement += "LIMIT %s"
+            cur.execute(statement, (self.table, postgres_query_str, limit))
+        else:
+            cur.execute(statement, (self.table, postgres_query_str))
         query_result = cur.fetchall()
         cur.close()
 
