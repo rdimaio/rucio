@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -26,7 +26,7 @@ import rucio.core.replica
 from rucio.common.config import config_get_int
 from rucio.common.constants import RseAttr
 from rucio.common.exception import InsufficientTargetRSEs
-from rucio.common.types import InternalScope
+from rucio.common.types import InternalScope, LoggerFunction
 from rucio.core import account_counter, rse_counter
 from rucio.core import request as request_core
 from rucio.core.rse import get_rse, get_rse_attribute, get_rse_name
@@ -1249,7 +1249,16 @@ def __set_replica_unavailable(replica, *, session: "Session"):
 
 
 @transactional_session
-def apply_rule(did, rule, rses, source_rses, rseselector, *, session: "Session", logger=logging.log):
+def apply_rule(
+    did: models.DataIdentifier,
+    rule: models.ReplicationRule,
+    rses: Iterable[str],
+    source_rses: Iterable[str],
+    rseselector: RSESelector,
+    *,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> None:
     """
     Apply a replication rule to one did.
 
@@ -1471,7 +1480,18 @@ def apply_rule(did, rule, rses, source_rses, rseselector, *, session: "Session",
 
 
 @transactional_session
-def _apply_rule_to_file(did, rule, rses, source_rses, rseselector, session: "Session", logger=logging.log):
+def _apply_rule_to_file(
+    did: models.DataIdentifier,
+    rule: models.ReplicationRule,
+    rses: Iterable[str],
+    source_rses: Iterable[str],
+    rseselector: RSESelector,
+    session: "Session",
+    logger: LoggerFunction = logging.log
+) -> tuple[
+    dict[str, dict[str, int]],
+    dict[str, dict[str, int]]
+]:
     rse_counters: dict[str, dict[str, int]] = {}
     account_counters: dict[str, dict[str, int]] = {}
 
