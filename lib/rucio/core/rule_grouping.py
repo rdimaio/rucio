@@ -1265,15 +1265,13 @@ def apply_rule(did, rule, rses, source_rses, rseselector, *, session: "Session",
     max_partition_size = config_get_int('rules', 'apply_rule_max_partition_size', default=2000, session=session)  # process dataset files in bunches of max this size
 
     # accounting counters
-    rse_counters_files = {}
-    rse_counters_bytes = {}
-    account_counters_files = {}
-    account_counters_bytes = {}
+    rse_counters: dict[str, dict[str, int]] = {}
+    account_counters: dict[str, dict[str, int]] = {}
 
     if did.did_type == DIDType.FILE:
         # NOTE: silently ignore rule.grouping
         if True:  # instead of -> if rule.grouping == RuleGrouping.NONE:
-            rse_counters_files, rse_counters_bytes, account_counters_files, account_counters_bytes = _apply_rule_to_file(did, rule, rses, source_rses, rseselector, session, logger)
+            rse_counters, account_counters = _apply_rule_to_file(did, rule, rses, source_rses, rseselector, session, logger)
     else:
         # handle dataset case by converting it to singleton container case
         # NOTE: this will handle DATASET/ALL as if it was DATASET/DATASET
@@ -1420,16 +1418,14 @@ def apply_rule(did, rule, rses, source_rses, rseselector, *, session: "Session",
                 # increment counters
                 # do not update (and lock !) counters inside loop here, update at very end and only once
                 for rse_id in replicas_to_create.keys():
-                    rse_counters_files[rse_id] = len(replicas_to_create[rse_id]) + rse_counters_files.get(rse_id, 0)
-                    rse_counters_bytes[rse_id] = sum([replica.bytes for replica in replicas_to_create[rse_id]]) + rse_counters_bytes.get(rse_id, 0)
-                # prnt(rse_counters_files, 'rse_counters_files')
-                # prnt(rse_counters_bytes, 'rse_counters_bytes')
+                    rse_counters[rse_id]['files'] += len(replicas_to_create[rse_id])
+                    rse_counters[rse_id]['bytes'] += sum([replica.bytes for replica in replicas_to_create[rse_id]])
+                # prnt(rse_counters, 'rse_counters')
 
                 for rse_id in locks_to_create.keys():
-                    account_counters_files[rse_id] = len(locks_to_create[rse_id]) + account_counters_files.get(rse_id, 0)
-                    account_counters_bytes[rse_id] = sum([lock.bytes for lock in locks_to_create[rse_id]]) + account_counters_bytes.get(rse_id, 0)
-                # prnt(account_counters_files, 'account_counters_files')
-                # prnt(account_counters_bytes, 'account_counters_bytes')
+                    account_counters[rse_id]['files'] += len(locks_to_create[rse_id])
+                    account_counters[rse_id]['bytes'] += sum([lock.bytes for lock in locks_to_create[rse_id]])
+                # prnt(account_counters, 'account_counters')
 
                 # mem()
 
@@ -1465,10 +1461,10 @@ def apply_rule(did, rule, rses, source_rses, rseselector, *, session: "Session",
                                                     ).save(session=session)
 
     # update account and rse counters
-    for rse_id in rse_counters_files:
-        rse_counter.increase(rse_id=rse_id, files=rse_counters_files[rse_id], bytes_=rse_counters_bytes[rse_id], session=session)
-    for rse_id in account_counters_files:
-        account_counter.increase(rse_id=rse_id, account=rule.account, files=account_counters_files[rse_id], bytes_=account_counters_bytes[rse_id], session=session)
+    for rse_id in rse_counters:
+        rse_counter.increase(rse_id=rse_id, files=rse_counters[rse_id]['files'], bytes_=rse_counters[rse_id]['bytes'], session=session)
+    for rse_id in account_counters:
+        account_counter.increase(rse_id=rse_id, account=rule.account, files=account_counters[rse_id]['files'], bytes_=account_counters[rse_id]['bytes'], session=session)
     session.flush()
 
     return
@@ -1476,11 +1472,8 @@ def apply_rule(did, rule, rses, source_rses, rseselector, *, session: "Session",
 
 @transactional_session
 def _apply_rule_to_file(did, rule, rses, source_rses, rseselector, session: "Session", logger=logging.log):
-    # accounting counters
-    rse_counters_files = {}
-    rse_counters_bytes = {}
-    account_counters_files = {}
-    account_counters_bytes = {}
+    rse_counters: dict[str, dict[str, int]] = {}
+    account_counters: dict[str, dict[str, int]] = {}
 
     locks = {}            # {(scope,name): [SQLAlchemy]}
     replicas = {}         # {(scope, name): [SQLAlchemy]}
@@ -1546,16 +1539,15 @@ def _apply_rule_to_file(did, rule, rses, source_rses, rseselector, session: "Ses
 
     # increment counters
     # align code with the one used inside the file loop below
+
     for rse_id in replicas_to_create.keys():
-        rse_counters_files[rse_id] = len(replicas_to_create[rse_id]) + rse_counters_files.get(rse_id, 0)
-        rse_counters_bytes[rse_id] = sum([replica.bytes for replica in replicas_to_create[rse_id]]) + rse_counters_bytes.get(rse_id, 0)
-    # prnt(rse_counters_files, 'rse_counters_files')
-    # prnt(rse_counters_bytes, 'rse_counters_bytes')
+        rse_counters[rse_id]['files'] += len(replicas_to_create[rse_id])
+        rse_counters[rse_id]['bytes'] += sum([replica.bytes for replica in replicas_to_create[rse_id]])
+    # prnt(rse_counters, 'rse_counters')
 
     for rse_id in locks_to_create.keys():
-        account_counters_files[rse_id] = len(locks_to_create[rse_id]) + account_counters_files.get(rse_id, 0)
-        account_counters_bytes[rse_id] = sum([lock.bytes for lock in locks_to_create[rse_id]]) + account_counters_bytes.get(rse_id, 0)
-    # prnt(account_counters_files, 'account_counters_files')
-    # prnt(account_counters_bytes, 'account_counters_bytes')
+        account_counters[rse_id]['files'] += len(locks_to_create[rse_id])
+        account_counters[rse_id]['bytes'] += sum([lock.bytes for lock in locks_to_create[rse_id]])
+    # prnt(account_counters, 'account_counters')
 
-    return rse_counters_files, rse_counters_bytes, account_counters_files, account_counters_bytes
+    return rse_counters, account_counters
