@@ -1376,6 +1376,12 @@ def apply_rule(
         except Exception:
             pass
 
+        resolved_files = []
+        for ds_scope, ds_name in datasets:
+            ds = rucio.core.did.get_did(scope=ds_scope, name=ds_name, dynamic_depth=DIDType.FILE, session=session)
+            dids = rucio.core.did.get_dids_from_dataset_substituting_constituents_with_archives(ds_scope, ds_name, session=session)
+            resolved_files.append(dids)
+
         # prnt(datasets)
 
         rse_coverage = {}   # rse_coverage = { rse_id : bytes }

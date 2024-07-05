@@ -21,7 +21,7 @@ from re import match
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from sqlalchemy import and_, delete, exists, insert, or_, update
-from sqlalchemy.exc import DatabaseError, IntegrityError, NoResultFound
+from sqlalchemy.exc import DatabaseError, IntegrityError, MultipleResultsFound, NoResultFound
 from sqlalchemy.sql import func, not_
 from sqlalchemy.sql.expression import bindparam, case, false, null, select, true
 
@@ -352,7 +352,7 @@ def attach_dids_to_dids(
 def __add_files_to_archive(
         parent_did: models.DataIdentifier,
         files_temp_table: Any,
-        files: "Mapping[tuple[InternalScope, str], Mapping[str, Any]]",
+        files: "Mapping[tuple['InternalScope', str], Mapping[str, Any]]",
         account: "InternalAccount",
         ignore_duplicate: bool = False,
         *,
@@ -2875,6 +2875,83 @@ def __resolve_bytes_length_events_did(
     else:
         bytes_, length, events = did.bytes or 0, did.length or 0, did.events or 0
     return bytes_, length, events
+
+
+@transactional_session
+def get_dids_from_dataset_substituting_constituents_with_archives(
+        dataset_scope: 'InternalScope',
+        dataset_name: str,
+        *,
+        session: "Session",
+) -> list[tuple['InternalScope', str, int]]:
+    """
+    Given a dataset, returns a list of all files within the dataset;
+    if any of these files are constituents to an archive,
+    they are substituted with the archive they belong to.
+
+    :param dataset_scope: The scope of the dataset.
+    :param dataset_name: The name of the dataset.
+    :param session: The database session in use.
+
+    :return: A list of files represented as tuples of (scope, name, bytes).
+    """
+
+    stmt = select(
+        models.DataIdentifierAssociation.child_scope.label('file_scope'),
+        models.DataIdentifierAssociation.child_name.label('file_name'),
+        models.DataIdentifierAssociation.bytes,
+        models.DataIdentifier.constituent
+    ).where(
+        models.DataIdentifierAssociation.scope == dataset_scope,
+        models.DataIdentifierAssociation.name == dataset_name,
+        models.DataIdentifier.scope == models.DataIdentifierAssociation.child_scope,
+        models.DataIdentifier.name == models.DataIdentifierAssociation.child_name
+    )
+
+    dataset_files = session.execute(stmt).all()
+
+    resolved_files = []
+    archives = set()
+
+    for file in dataset_files:
+        if file.constituent:
+            # Get archive scope and DID
+            stmt = select(
+                models.ConstituentAssociation.scope,
+                models.ConstituentAssociation.name,
+            ).where(
+                models.ConstituentAssociation.child_scope == file.file_scope,
+                models.ConstituentAssociation.child_name == file.file_name,
+            )
+
+            try:
+                archive = session.execute(stmt).one()
+            except NoResultFound:
+                raise exception.DataIdentifierNotFound('Archive not found for constituent DID %s:%s' % (file.file_scope, file.file_name))
+            except MultipleResultsFound:
+                raise exception.Duplicate('More than one archive found for constituent DID %s:%s' % (file.file_scope, file.file_name))
+
+            # Get archive size
+            stmt = select(
+                models.DataIdentifier.bytes,
+            ).where(
+                models.DataIdentifier.scope == archive.scope,
+                models.DataIdentifier.name == archive.name,
+            )
+
+            try:
+                archive_bytes = session.execute(stmt).one()
+            except NoResultFound:
+                raise exception.DataIdentifierNotFound('Size information of archive not found: %s:%s' % (archive.scope, archive.name))
+            except MultipleResultsFound:
+                raise exception.Duplicate('More than one DID found for archive: %s:%s' % (archive.scope, archive.name))
+
+            archives.add((archive.scope, archive.name, archive_bytes))
+        else:
+            resolved_files.append((file.file_scope, file.file_name, file.bytes))
+
+    resolved_files += [(archive[0], archive[1], archive[2].bytes) for archive in archives]
+    return resolved_files
 
 
 @transactional_session
