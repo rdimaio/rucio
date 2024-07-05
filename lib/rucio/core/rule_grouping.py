@@ -1479,7 +1479,6 @@ def apply_rule(
     return
 
 
-@transactional_session
 def _apply_rule_to_file(
     did: models.DataIdentifier,
     rule: models.ReplicationRule,
