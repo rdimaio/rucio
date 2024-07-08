@@ -193,6 +193,10 @@ class DIDDict(TypedDict):
     scope: InternalScope
 
 
+class DIDWithSizeDict(DIDDict):
+    bytes: int
+
+
 class HopDict(TypedDict):
     source_rse_id: str
     source_scheme: "SUPPORTED_PROTOCOLS_LITERAL"

@@ -26,7 +26,7 @@ import rucio.core.replica
 from rucio.common.config import config_get_int
 from rucio.common.constants import RseAttr
 from rucio.common.exception import InsufficientTargetRSEs
-from rucio.common.types import InternalScope, LoggerFunction
+from rucio.common.types import DIDWithSizeDict, InternalScope, LoggerFunction
 from rucio.core import account_counter, rse_counter
 from rucio.core import request as request_core
 from rucio.core.rse import get_rse, get_rse_attribute, get_rse_name
@@ -1376,11 +1376,20 @@ def apply_rule(
         except Exception:
             pass
 
-        resolved_files = []
+        datasets_with_information = {}
+        files_to_replicate: dict[tuple['InternalScope', str], list[DIDWithSizeDict]] = {}
         for ds_scope, ds_name in datasets:
-            ds = rucio.core.did.get_did(scope=ds_scope, name=ds_name, dynamic_depth=DIDType.FILE, session=session)
-            dids = rucio.core.did.get_dids_from_dataset_substituting_constituents_with_archives(ds_scope, ds_name, session=session)
-            resolved_files.append(dids)
+            datasets_with_information[(ds_scope, ds_name)] = rucio.core.did.get_did(scope=ds_scope, name=ds_name, dynamic_depth=DIDType.FILE, session=session)
+
+            ds_files_to_replicate = rucio.core.did.get_dids_from_dataset_substituting_constituents_with_archives(ds_scope, ds_name, session=session)
+            files_to_replicate[(ds_scope, ds_name)] = ds_files_to_replicate
+
+            # Calculate actual length of dataset when replicating archives in place of their constituents.
+            # (Multiple files in the dataset might be constituents to a single archive)
+            datasets_with_information[((ds_scope, ds_name))]['length_substituting_constituents_with_archives'] = len(ds_files_to_replicate)
+
+            # Calculate actual size of dataset when replicating archives in place of their constituents
+            datasets_with_information[(ds_scope, ds_name)]['bytes_substituting_constituents_with_archives'] = sum(file['bytes'] for file in ds_files_to_replicate)
 
         # prnt(datasets)
 
@@ -1390,13 +1399,11 @@ def apply_rule(
 
         if rule.grouping == RuleGrouping.ALL:
             # calculate target RSEs
-            nbytes = 0
+            total_bytes = sum(dataset['bytes_substituting_constituents_with_archives'] for dataset in datasets_with_information.values())
             rse_coverage = {}
             # simply loop over child datasets
             # this is an approximation because ignoring the possibility of file overlap
             for ds_scope, ds_name in datasets:
-                ds = rucio.core.did.get_did(scope=ds_scope, name=ds_name, dynamic_depth=DIDType.FILE, session=session)  # this will be retrieved again later on -> could be optimized
-                nbytes += ds['bytes']
                 one_rse_coverage = rucio.core.replica.get_RSEcoverage_of_dataset(scope=ds_scope, name=ds_name, session=session)
                 for rse_id, bytes_ in one_rse_coverage.items():
                     rse_coverage[rse_id] = bytes_ + rse_coverage.get(rse_id, 0)
@@ -1404,17 +1411,16 @@ def apply_rule(
             # prnt(rse_coverage)
             preferred_rse_ids = [x[0] for x in sorted(rse_coverage.items(), key=lambda tup: tup[1], reverse=True)]
             # prnt(preferred_rse_ids)
-            rse_tuples = rseselector.select_rse(size=nbytes, preferred_rse_ids=preferred_rse_ids,
+            rse_tuples = rseselector.select_rse(size=total_bytes, preferred_rse_ids=preferred_rse_ids,
                                                 prioritize_order_over_weight=True, existing_rse_size=rse_coverage)
             # prnt(rse_tuples)
 
         for ds_scope, ds_name in datasets:
             # prnt(('processing dataset ',ds_scope, ds_name))
             #
-            ds = rucio.core.did.get_did(scope=ds_scope, name=ds_name, dynamic_depth=DIDType.FILE, session=session)
-            ds_length = ds['length']
-            ds_bytes = ds['bytes']
-            ds_open = ds['open']
+            ds_length = datasets_with_information[(ds_scope, ds_name)]['length_substituting_constituents_with_archives']
+            ds_bytes = datasets_with_information[(ds_scope, ds_name)]['bytes_substituting_constituents_with_archives']
+            ds_open = datasets_with_information[(ds_scope, ds_name)]['open']
             # prnt(ds)
 
             # calculate number of partitions based on nr of files

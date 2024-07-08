@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from sqlalchemy.sql._typing import ColumnExpressionArgument
     from sqlalchemy.sql.selectable import Select
 
-    from rucio.common.types import InternalAccount, InternalScope, LoggerFunction
+    from rucio.common.types import DIDWithSizeDict, InternalAccount, InternalScope, LoggerFunction
 
 
 METRICS = MetricManager(module=__name__)
@@ -2883,7 +2883,7 @@ def get_dids_from_dataset_substituting_constituents_with_archives(
         dataset_name: str,
         *,
         session: "Session",
-) -> list[tuple['InternalScope', str, int]]:
+) -> list['DIDWithSizeDict']:
     """
     Given a dataset, returns a list of all files within the dataset;
     if any of these files are constituents to an archive,
@@ -2948,9 +2948,9 @@ def get_dids_from_dataset_substituting_constituents_with_archives(
 
             archives.add((archive.scope, archive.name, archive_bytes))
         else:
-            resolved_files.append((file.file_scope, file.file_name, file.bytes))
+            resolved_files.append({'scope': file.file_scope, 'name': file.file_name, 'bytes': file.bytes})
 
-    resolved_files += [(archive[0], archive[1], archive[2].bytes) for archive in archives]
+    resolved_files += [{'scope': archive[0], 'name': archive[1], 'bytes': archive[2].bytes} for archive in archives]
     return resolved_files
 
 
