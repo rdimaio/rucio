@@ -42,11 +42,12 @@ from rucio.db.sqla.util import temp_table_mngr
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping, Sequence
 
+    from sqlalchemy.engine import Row
     from sqlalchemy.orm import Session
     from sqlalchemy.sql._typing import ColumnExpressionArgument
     from sqlalchemy.sql.selectable import Select
 
-    from rucio.common.types import DIDWithSizeDict, InternalAccount, InternalScope, LoggerFunction
+    from rucio.common.types import DIDDict, InternalAccount, InternalScope, LoggerFunction
 
 
 METRICS = MetricManager(module=__name__)
@@ -2878,42 +2879,15 @@ def __resolve_bytes_length_events_did(
 
 
 @transactional_session
-def get_dids_from_dataset_substituting_constituents_with_archives(
-        dataset_scope: 'InternalScope',
-        dataset_name: str,
-        *,
-        session: "Session",
-) -> list['DIDWithSizeDict']:
-    """
-    Given a dataset, returns a list of all files within the dataset;
-    if any of these files are constituents to an archive,
-    they are substituted with the archive they belong to.
-
-    :param dataset_scope: The scope of the dataset.
-    :param dataset_name: The name of the dataset.
-    :param session: The database session in use.
-
-    :return: A list of files represented as tuples of (scope, name, bytes).
-    """
-
-    stmt = select(
-        models.DataIdentifierAssociation.child_scope.label('file_scope'),
-        models.DataIdentifierAssociation.child_name.label('file_name'),
-        models.DataIdentifierAssociation.bytes,
-        models.DataIdentifier.constituent
-    ).where(
-        models.DataIdentifierAssociation.scope == dataset_scope,
-        models.DataIdentifierAssociation.name == dataset_name,
-        models.DataIdentifier.scope == models.DataIdentifierAssociation.child_scope,
-        models.DataIdentifier.name == models.DataIdentifierAssociation.child_name
-    )
-
-    dataset_files = session.execute(stmt).all()
-
+def _substitute_constituents_with_archives(
+    files: 'Iterable[Row[tuple[InternalScope, str, Optional[int], Optional[bool]]]]',
+    *,
+    session: "Session"
+) -> list['DIDDict']:
     resolved_files = []
     archives = set()
 
-    for file in dataset_files:
+    for file in files:
         if file.constituent:
             # Get archive scope and DID
             stmt = select(
@@ -2952,6 +2926,47 @@ def get_dids_from_dataset_substituting_constituents_with_archives(
 
     resolved_files += [{'scope': archive[0], 'name': archive[1], 'bytes': archive[2].bytes} for archive in archives]
     return resolved_files
+
+
+@transactional_session
+def get_dids_from_dataset_substituting_constituents_with_archives(
+        dataset_scope: 'InternalScope',
+        dataset_name: str,
+        *,
+        session: "Session",
+) -> tuple[bool, list['DIDDict']]:
+    """
+    Given a dataset, returns a list of all files within the dataset;
+    if any of these files are constituents to an archive,
+    they are substituted with the archive they belong to.
+
+    :param dataset_scope: The scope of the dataset.
+    :param dataset_name: The name of the dataset.
+    :param session: The database session in use.
+
+    :return: A tuple of a boolean and a list of files represented as tuples of (scope, name, bytes).
+    The boolean is True if any of the files are constituents to an archive (and substitutions have been made),
+    False otherwise.
+    """
+
+    stmt = select(
+        models.DataIdentifierAssociation.child_scope.label('file_scope'),
+        models.DataIdentifierAssociation.child_name.label('file_name'),
+        models.DataIdentifierAssociation.bytes,
+        models.DataIdentifier.constituent
+    ).where(
+        models.DataIdentifierAssociation.scope == dataset_scope,
+        models.DataIdentifierAssociation.name == dataset_name,
+        models.DataIdentifier.scope == models.DataIdentifierAssociation.child_scope,
+        models.DataIdentifier.name == models.DataIdentifierAssociation.child_name
+    )
+
+    dataset_files = session.execute(stmt).all()
+
+    if not any(file.constituent for file in dataset_files):
+        return False, dataset_files  # type: ignore (pending SQLA2.1: https://github.com/rucio/rucio/discussions/6615)
+    else:
+        return True, _substitute_constituents_with_archives(dataset_files, session=session)
 
 
 @transactional_session

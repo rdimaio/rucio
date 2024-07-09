@@ -188,13 +188,11 @@ class RuleDict(TypedDict):
     purge_replicas: bool
 
 
-class DIDDict(TypedDict):
+class DIDDict(TypedDict, total=False):
     name: str
     scope: InternalScope
-
-
-class DIDWithSizeDict(DIDDict):
     bytes: int
+    constituent: bool
 
 
 class HopDict(TypedDict):

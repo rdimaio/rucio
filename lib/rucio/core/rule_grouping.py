@@ -1381,15 +1381,16 @@ def apply_rule(
         for ds_scope, ds_name in datasets:
             datasets_with_information[(ds_scope, ds_name)] = rucio.core.did.get_did(scope=ds_scope, name=ds_name, dynamic_depth=DIDType.FILE, session=session)
 
-            ds_files_to_replicate = rucio.core.did.get_dids_from_dataset_substituting_constituents_with_archives(ds_scope, ds_name, session=session)
+            are_constituents_substituted_with_archives, ds_files_to_replicate = rucio.core.did.get_dids_from_dataset_substituting_constituents_with_archives(ds_scope, ds_name, session=session)
             files_to_replicate[(ds_scope, ds_name)] = ds_files_to_replicate
 
-            # Calculate actual length of dataset when replicating archives in place of their constituents.
-            # (Multiple files in the dataset might be constituents to a single archive)
-            datasets_with_information[((ds_scope, ds_name))]['length_substituting_constituents_with_archives'] = len(ds_files_to_replicate)
+            if are_constituents_substituted_with_archives:
+                # Calculate actual length of dataset when replicating archives in place of their constituents.
+                # (Multiple files in the dataset might be constituents to a single archive)
+                datasets_with_information[((ds_scope, ds_name))]['length'] = len(ds_files_to_replicate)
 
-            # Calculate actual size of dataset when replicating archives in place of their constituents
-            datasets_with_information[(ds_scope, ds_name)]['bytes_substituting_constituents_with_archives'] = sum(file['bytes'] for file in ds_files_to_replicate)
+                # Calculate actual size of dataset when replicating archives in place of their constituents
+                datasets_with_information[(ds_scope, ds_name)]['bytes'] = sum(file['bytes'] for file in ds_files_to_replicate)
 
         # prnt(datasets)
 
@@ -1399,7 +1400,7 @@ def apply_rule(
 
         if rule.grouping == RuleGrouping.ALL:
             # calculate target RSEs
-            total_bytes = sum(dataset['bytes_substituting_constituents_with_archives'] for dataset in datasets_with_information.values())
+            total_bytes = sum(dataset['bytes'] for dataset in datasets_with_information.values())
             rse_coverage = {}
             # simply loop over child datasets
             # this is an approximation because ignoring the possibility of file overlap
@@ -1418,8 +1419,8 @@ def apply_rule(
         for ds_scope, ds_name in datasets:
             # prnt(('processing dataset ',ds_scope, ds_name))
             #
-            ds_length = datasets_with_information[(ds_scope, ds_name)]['length_substituting_constituents_with_archives']
-            ds_bytes = datasets_with_information[(ds_scope, ds_name)]['bytes_substituting_constituents_with_archives']
+            ds_length = datasets_with_information[(ds_scope, ds_name)]['length']
+            ds_bytes = datasets_with_information[(ds_scope, ds_name)]['bytes']
             ds_open = datasets_with_information[(ds_scope, ds_name)]['open']
             # prnt(ds)
 
@@ -1448,7 +1449,8 @@ def apply_rule(
 
                 # get files and replicas, lock the replicas
                 files, replicas = rucio.core.replica.get_and_lock_file_replicas_for_dataset(scope=ds_scope, name=ds_name, nowait=True, restrict_rses=rses,
-                                                                                            total_threads=npartitions, thread_id=p, session=session)
+                                                                                            total_threads=npartitions, thread_id=p,
+                                                                                            substitute_constituents_with_archives=are_constituents_substituted_with_archives, session=session)
                 # prnt(files, 'files')
                 # prnt(replicas, 'replicas')
 
