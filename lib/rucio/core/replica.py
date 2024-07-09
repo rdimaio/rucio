@@ -2539,22 +2539,6 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                                                 'adler32': adler32}
             replicas[(child_scope, child_name)] = []
 
-        # Get replicas and lock them
-        query = session.query(models.DataIdentifierAssociation.child_scope,
-                              models.DataIdentifierAssociation.child_name,
-                              models.DataIdentifierAssociation.bytes,
-                              models.DataIdentifierAssociation.md5,
-                              models.DataIdentifierAssociation.adler32,
-                              models.RSEFileAssociation)\
-            .with_hint(models.DataIdentifierAssociation,
-                       "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
-                       'oracle')\
-            .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
-                         models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
-                         models.RSEFileAssociation.state != ReplicaState.BEING_DELETED))\
-            .filter(models.DataIdentifierAssociation.scope == scope,
-                    models.DataIdentifierAssociation.name == name)
-
         if restrict_rses is not None:
             if len(restrict_rses) < 10:
                 rse_clause = []
@@ -2576,6 +2560,22 @@ def get_and_lock_file_replicas_for_dataset(scope, name, nowait=False, restrict_r
                                                 or_(*rse_clause)))\
                                    .filter(models.DataIdentifierAssociation.scope == scope,
                                            models.DataIdentifierAssociation.name == name)
+        else:
+            # Get replicas and lock them
+            query = session.query(models.DataIdentifierAssociation.child_scope,
+                                  models.DataIdentifierAssociation.child_name,
+                                  models.DataIdentifierAssociation.bytes,
+                                  models.DataIdentifierAssociation.md5,
+                                  models.DataIdentifierAssociation.adler32,
+                                  models.RSEFileAssociation)\
+                .with_hint(models.DataIdentifierAssociation,
+                           "INDEX_RS_ASC(CONTENTS CONTENTS_PK) NO_INDEX_FFS(CONTENTS CONTENTS_PK)",
+                           'oracle')\
+                .filter(and_(models.DataIdentifierAssociation.child_scope == models.RSEFileAssociation.scope,
+                             models.DataIdentifierAssociation.child_name == models.RSEFileAssociation.name,
+                             models.RSEFileAssociation.state != ReplicaState.BEING_DELETED))\
+                .filter(models.DataIdentifierAssociation.scope == scope,
+                        models.DataIdentifierAssociation.name == name)
 
     else:
         query = session.query(models.DataIdentifierAssociation.child_scope,
