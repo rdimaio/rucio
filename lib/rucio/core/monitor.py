@@ -39,6 +39,7 @@ from rucio.common.utils import retrying
 if TYPE_CHECKING:
     from rucio.common.types import LoggerFunction
 
+CallableToWrap = TypeVar('CallableToWrap', bound=Callable)
 _T = TypeVar('_T')
 _M = TypeVar('_M', bound="_MultiMetric")
 
@@ -61,15 +62,15 @@ class MultiprocessMutexValue(values.MultiProcessValue()):
         super().__init__(*args, **kwargs)
         self._lock = Lock()
 
-    def inc(self, amount):
+    def inc(self, amount: float) -> None:
         with self._lock:
             return super().inc(amount)
 
-    def set(self, value):
+    def set(self, value: float) -> None:
         with self._lock:
             return super().set(value)
 
-    def get(self):
+    def get(self) -> float:
         with self._lock:
             return super().get()
 
@@ -199,7 +200,7 @@ class _MultiMetric:
             return self
 
         return self.__class__(
-            prom=self._prom.labels(**labelkwargs),
+            prom=self._prom.labels(**labelkwargs),  # type: ignore
             statsd=self._statsd.format(**labelkwargs),
             documentation=self._documentation,
             labelnames=self._labelnames,
@@ -209,9 +210,9 @@ class _MultiMetric:
 
 class _MultiCounter(_MultiMetric):
 
-    def inc(self, delta=1):
+    def inc(self, delta: int = 1) -> None:
         delta = abs(delta)
-        self._prom.inc(delta)
+        self._prom.inc(delta)  # type: ignore
         if STATSD_CLIENT:
             STATSD_CLIENT.incr(self._statsd, delta)
 
@@ -221,8 +222,8 @@ class _MultiCounter(_MultiMetric):
 
 class _MultiGauge(_MultiMetric):
 
-    def set(self, value):
-        self._prom.set(value)
+    def set(self, value) -> None:
+        self._prom.set(value)  # type: ignore
         if STATSD_CLIENT:
             STATSD_CLIENT.gauge(self._statsd, value)
 
@@ -245,8 +246,8 @@ class _MultiTiming(_MultiMetric):
         self._histogram_buckets = tuple(buckets)
         super().__init__(statsd, prom, documentation, labelnames, registry)
 
-    def observe(self, value: float):
-        self._prom.observe(value)
+    def observe(self, value: float) -> None:
+        self._prom.observe(value)  # type: ignore
         if STATSD_CLIENT:
             STATSD_CLIENT.timing(self._statsd, value * 1000)
 
@@ -400,13 +401,18 @@ class MetricManager:
         """
         return _fetch_or_create_timer(name=self.full_name(name), labelnames=labelnames, documentation=documentation, buckets=buckets)
 
-    def time_it(self, original_function=None, *, buckets=_HISTOGRAM_DEFAULT_BUCKETS):
+    def time_it(
+            self,
+            original_function: Optional[Callable] = None,
+            *,
+            buckets: Iterable[float] = _HISTOGRAM_DEFAULT_BUCKETS
+    ) -> Callable[[Callable], Callable[..., Callable]]:
         """
         Function decorator which records a timer: the amount of time spent in the function.
         """
-        def _decorator(func):
+        def _decorator(func: CallableToWrap) -> Callable[..., CallableToWrap]:
             @wraps(func)
-            def _wrapper(*args, **kwargs):
+            def _wrapper(*args, **kwargs) -> CallableToWrap:
                 with self.timer(name=func.__name__, buckets=buckets):
                     return func(*args, **kwargs)
             return _wrapper
@@ -414,13 +420,16 @@ class MetricManager:
             return _decorator(original_function)
         return _decorator
 
-    def count_it(self, original_function=None):
+    def count_it(
+            self,
+            original_function: Optional[Callable] = None
+    ) -> Callable[[Callable], Callable[..., Callable]]:
         """
         Function decorator which records a counter: how many times the function was executed.
         """
-        def _decorator(func):
+        def _decorator(func: CallableToWrap) -> Callable[..., CallableToWrap]:
             @wraps(func)
-            def _wrapper(*args, **kwargs):
+            def _wrapper(*args, **kwargs) -> CallableToWrap:
                 try:
                     return func(*args, **kwargs)
                 finally:
