@@ -20,3 +20,15 @@ repos:
   hooks:
     - id: ruff
       args: [ --fix ]
+- repo: https://github.com/astral-sh/uv-pre-commit
+  rev: 0.2.33
+  hooks:
+    - id: pip-compile
+      name: pip-compile requirements.server
+      args: [requirements/requirements.server.in, -o, requirements/requirements.server.txt, -q]
+      # `files` tells the hook to only run if files matching the pattern have been modified
+      files: ^requirements/requirements.server\.(in|txt)$
+    - id: pip-compile
+      name: pip-compile requirements.dev
+      args: [requirements/requirements.dev.in, -o, requirements/requirements.dev.txt, -q]
+      files: ^requirements/requirements.dev\.(in|txt)$
