@@ -48,11 +48,11 @@ function wait_for_database() {
 }
 
 if [ "$SUITE" == "client" ]; then
-    tools/run_tests.sh -i
+    tools/run_tests.sh -i -c
 
     cp "$SOURCE_PATH"/etc/docker/test/extra/rucio_client.cfg "$SOURCE_PATH"/etc/rucio.cfg
     srchome
-    tools/pytest.sh -v --tb=short tests/test_clients.py tests/test_bin_rucio.py tests/test_module_import.py
+    tools/pytest.sh -p pytest_cov --cov=lib/rucio --cov-report xml -v --tb=short tests/test_clients.py tests/test_bin_rucio.py tests/test_module_import.py
 
 elif [ "$SUITE" == "client_syntax" ]; then
     srchome
@@ -95,7 +95,7 @@ elif [ "$SUITE" == "votest" ]; then
 
     TESTS=$(python $VOTEST_HELPER --vo "$POLICY" --tests --file $VOTEST_CONFIG_FILE)
     export TESTS
-    tools/run_tests.sh -p
+    tools/run_tests.sh -p -c
 
 elif [ "$SUITE" == "multi_vo" ]; then
     VO1_HOME="$RUCIO_HOME"
@@ -123,8 +123,8 @@ elif [ "$SUITE" == "remote_dbs" ] || [ "$SUITE" == "sqlite" ]; then
     wait_for_httpd
 
     if [ -n "$TESTS" ]; then
-        tools/run_tests.sh -p
+        tools/run_tests.sh -p -c
     else
-        tools/run_tests.sh
+        tools/run_tests.sh -c
     fi
 fi

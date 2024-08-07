@@ -101,7 +101,7 @@ if test ${init_only}; then
 fi
 
 echo 'Running tests on VO "tst"'
-tools/pytest.sh -v --tb=short
+tools/pytest.sh -p pytest_cov --cov=lib/rucio --cov-report xml -v --tb=short
 if [ $? != 0 ]; then
     echo 'Tests on first VO failed, not attempting tests at second VO'
     exit 1
@@ -140,7 +140,7 @@ if test ${activate_rse}; then
 fi
 
 echo 'Running tests on VO "ts2"'
-tools/pytest.sh -v --tb=short
+tools/pytest.sh -p pytest_cov --cov=lib/rucio --cov-report xml -v --tb=short
 if [ $? != 0 ]; then
     echo 'Tests on second VO failed'
     exit 1

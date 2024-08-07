@@ -197,9 +197,9 @@ else
     PYTEST_SH_ARGS="-v --tb=short $PYTEST_SH_ARGS"
 fi
 
+
 if test ${coverage}; then
-    echo 'Generating coverage'
-    PYTEST_SH_ARGS="--cov=lib/rucio --cov-report term --cov-report xml:.coverage $PYTEST_SH_ARGS"
+    PYTEST_SH_ARGS="$PYTEST_SH_ARGS -p pytest_cov --cov=lib/rucio --cov-report xml"
 fi
 
 for i in $iterations
