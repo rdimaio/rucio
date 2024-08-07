@@ -127,22 +127,58 @@ jobs:
           docker exec -t dev_rucio_1 tools/run_tests.sh -ir
       - name: File Upload/Download Test
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short tests/test_rucio_server.py
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: UploadClient Test
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short tests/test_upload.py
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: File Upload/Download Test using 'impl' parameter
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short tests/test_impl_upload_download.py
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Test gfal2 implementation on xrootd protocol
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short tests/test_rse_protocol_gfal2_impl.py
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Test Protocol XrootD
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short tests/test_rse_protocol_xrootd.py
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Test Protocol SSH (scp)
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short tests/test_rse_protocol_ssh.py
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Test Protocol Rsync
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short tests/test_rse_protocol_rsync.py
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Test Protocol Rclone
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short tests/test_rse_protocol_rclone.py
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Test Conveyor
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short tests/test_conveyor.py
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Execute transfer and export FTS transfer details
         id: tpc
         shell: bash
@@ -150,6 +186,10 @@ jobs:
           docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short --export-artifacts-from="test_tpc" tests/test_tpc.py
           FTS_LOG_FILE=$(docker exec -t dev_rucio_1 cat /tmp/test_tpc.artifact)
           echo "fts3log=$FTS_LOG_FILE" >> $GITHUB_OUTPUT
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Verify TPC transfers from FTS logs
         shell: bash
         run: |
@@ -163,6 +203,10 @@ jobs:
           fi
       - name: Test Token Deletion
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short tests/test_reaper.py::test_deletion_with_tokens
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Print server error logs
         if: ${{ success() || failure() }}
         shell: bash
@@ -170,9 +214,21 @@ jobs:
           docker exec -t dev_rucio_1 cat /var/log/rucio/httpd_error_log
       - name: Archive Upload/Download Test
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short tests/test_download.py::test_download_from_archive_on_xrd
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Test external metadata plugin (mongo)
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short tests/test_did_meta_plugins.py::TestDidMetaMongo
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Test external metadata plugin (postgres)
         run: docker exec -t dev_rucio_1 tools/pytest.sh -v --tb=short tests/test_did_meta_plugins.py::TestDidMetaExternalPostgresJSON
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Stop containers
         run: docker compose -f $GITHUB_WORKSPACE/dev/rucio/etc/docker/dev/docker-compose.yml --profile storage --profile externalmetadata --profile iam down

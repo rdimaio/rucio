@@ -6,6 +6,9 @@ inputs:
   github_token:
     required: true
     description: "The GITHUB_TOKEN stored as a secret, required to push images to ghcr.io"
+  CODECOV_TOKEN:
+    required: true
+    description: "The CODECOV_TOKEN secret used to upload the coverage report to Codecov"
   branch:
     required: true
 
@@ -34,3 +37,7 @@ runs:
     - name: Run test with cfg
       shell: bash
       run: 'echo ''{"matrix": ${{ inputs.cfg }}, "images": ${{ steps.images.outputs.images }} }'' | ./tools/test/run_tests.py'
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v4.0.1
+      with:
+        token: ${{ inputs.CODECOV_TOKEN }}

@@ -37,4 +37,5 @@ jobs:
         with:
           cfg: ${{ toJson(matrix.cfg) }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
           branch: ${{ needs.setup.outputs.branch }}
