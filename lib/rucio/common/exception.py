@@ -1099,3 +1099,13 @@ class SortingAlgorithmNotSupported(RucioException):
         super(SortingAlgorithmNotSupported, self).__init__(*args, **kwargs)
         self._message = 'Sorting algorithm is not supported.'
         self.error_code = 106
+
+
+class PolicyPackageIsNotVersioned(RucioException):
+    """
+    Policy package does not contain version information.
+    """
+    def __init__(self, package, *args, **kwargs):
+        super(PolicyPackageIsNotVersioned, self).__init__(*args, **kwargs)
+        self._message = 'Policy package %s does not include information about which Rucio versions it supports.' % package
+        self.error_code = 107
