@@ -62,7 +62,7 @@ for meta_module_path in METADATA_PLUGIN_MODULE_PATHS:
         metadata_plugin_module = getattr(importlib.import_module(base_module), base_class)()
         METADATA_PLUGIN_MODULES.append(metadata_plugin_module)
     except ImportError:
-        raise exception.PolicyPackageNotFound('Module ' + meta_module_path + ' not found')
+        raise exception.PolicyPackageNotFound(meta_module_path)
 
 # Set restricted character set for metadata in form character: reason
 #
