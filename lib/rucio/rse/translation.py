@@ -14,7 +14,7 @@
 import hashlib
 import logging
 from configparser import NoOptionError, NoSectionError
-from typing import TYPE_CHECKING, Any, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Optional
 
 from rucio.common import config
 from rucio.common.constants import RseAttr
@@ -107,9 +107,6 @@ class RSEDeterministicScopeTranslation(PolicyPackageAlgorithms):
 
 
 RSEDeterministicScopeTranslation()
-
-
-RSEDeterministicTranslationT = TypeVar('RSEDeterministicTranslationT', bound='RSEDeterministicTranslation')
 
 
 class RSEDeterministicTranslation(PolicyPackageAlgorithms):
