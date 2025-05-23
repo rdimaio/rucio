@@ -21,8 +21,9 @@ from rucio.client.replicaclient import ReplicaClient
 from rucio.client.ruleclient import RuleClient
 from rucio.common.exception import InvalidObject
 from rucio.common.schema import get_schema_value
+from rucio.common.types import InternalScope
 from rucio.core.did import add_dids, attach_dids
-from rucio.core.replica import add_replicas, delete_replicas, get_cleaned_updated_collection_replicas, list_datasets_per_rse, update_collection_replica
+from rucio.core.replica import add_replicas, delete_replicas, get_cleaned_updated_collection_replicas, list_datasets_per_rse, update_collection_replica, update_replica_state
 from rucio.core.rse import add_protocol, add_rse, del_rse, get_rse_id
 from rucio.db.sqla import constants, models
 from rucio.db.sqla.constants import ReplicaState
@@ -156,6 +157,23 @@ class TestDatasetReplicaClient:
         assert res[0]['state'] == 'AVAILABLE'
         assert res[1]['state'] == 'AVAILABLE'
         assert res[2]['state'] == 'AVAILABLE'
+
+        # Update replica state of one file to TEMPORARY_UNAVAILABLE
+        temp_unavailable_file = res[0]['name']
+        update_replica_state(
+            rse_id=rse_id,
+            scope=InternalScope('mock', vo=vo),
+            name=temp_unavailable_file,
+            state=constants.ReplicaState.TEMPORARY_UNAVAILABLE,
+        )
+
+        res = [r for r in replica_client.list_dataset_replicas(scope=scope,
+                                                               name=dataset_name,
+                                                               deep=True)]
+
+        # Assert that the TEMPORARY_UNAVAILABLE replica is not present in the result
+        assert len(res) == 2
+        assert temp_unavailable_file not in [r['name'] for r in res]
 
         del_rse(rse_id)
 
