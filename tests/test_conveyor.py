@@ -1600,11 +1600,11 @@ def test_checksum_validation(rse_factory, did_factory, root_account):
     # No common supported checksum between the source and destination rse. It will verify the destination rse checksum and fail
     request = __wait_for_state_transition(dst_rse_id=dst_rse2_id, **did)
     assert request['state'] == RequestState.FAILED
-    assert 'User and destination checksums do not match' in request['err_msg']
+    assert 'User-defined and destination MD5 checksum do not match' in request['err_msg']
 
     # Common checksum exists between the two. It must use "both" validation strategy and fail
     request = __wait_for_state_transition(dst_rse_id=dst_rse3_id, **did)
-    assert 'Source and destination checksums do not match' in request['err_msg']
+    assert 'User-defined and destination ADLER32 checksum do not match' in request['err_msg']
     assert request['state'] == RequestState.FAILED
 
 
