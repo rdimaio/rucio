@@ -399,7 +399,7 @@ def test_multisource(vo, did_factory, root_account, replica_client, caches_mock,
     # Add a good replica on the RSE which has a higher distance ranking
     did = did_factory.upload_test_file(src_rse1)
     # Add non-existing replica which will fail during multisource transfers on the RSE with lower cost (will be the preferred source)
-    replica_client.add_replicas(rse=src_rse2, files=[{'scope': did['scope'].external, 'name': did['name'], 'bytes': 1, 'adler32': 'aaaaaaaa'}])
+    replica_client.add_replicas(rse=src_rse2, files=[{'scope': did['scope'].external, 'name': did['name'], 'bytes': 1}])
 
     # Submit indirectly, via a container, to test this case
     dataset = did_factory.make_dataset()
@@ -476,7 +476,7 @@ def test_multisource_receiver(vo, did_factory, replica_client, root_account, met
         # Add a good replica on the RSE which has a higher distance ranking
         did = did_factory.upload_test_file(src_rse1)
         # Add non-existing replica which will fail during multisource transfers on the RSE with lower cost (will be the preferred source)
-        replica_client.add_replicas(rse=src_rse2, files=[{'scope': did['scope'].external, 'name': did['name'], 'bytes': 1, 'adler32': 'aaaaaaaa'}])
+        replica_client.add_replicas(rse=src_rse2, files=[{'scope': did['scope'].external, 'name': did['name'], 'bytes': 1}])
 
         # submit using indirectly via a dataset to test this case
         dataset = did_factory.make_dataset()
