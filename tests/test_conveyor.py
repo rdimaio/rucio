@@ -546,6 +546,13 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
         dst_rse = 'XRD4'
         dst_rse_id = rse_core.get_rse_id(rse=dst_rse, vo=vo)
 
+        # Disable checksum verification to avoid defining
+        # source and destination checksum for each transfer
+        # (required when using the mock protocol on FTS >= 3.14.1),
+        # which should be done on this test because the DID does not actually exist.
+        rse_core.add_rse_attribute(src_rse_id, RseAttr.VERIFY_CHECKSUM, False)
+        rse_core.add_rse_attribute(dst_rse_id, RseAttr.VERIFY_CHECKSUM, False)
+
         all_rses = [src_rse_id, jump_rse_id, dst_rse_id]
 
         # Register a DID which doesn't exist. It will trigger a failure error during the FTS transfer.
@@ -1054,7 +1061,9 @@ def test_lost_transfers(rse_factory, did_factory, root_account):
     class _FTSWrapper(FTSWrapper):
         @staticmethod
         def on_submit(file):
-            # Set the correct checksum on both source and destination
+            # Set the correct checksum on both source and destination.
+            # This is necessary as we're using the mock protocol,
+            # which requires both source and destination checksums to be defined.
             file['sources'] = [set_query_parameters(s_url, {'checksum': replica['adler32']}) for s_url in file['sources']]
             file['destinations'] = [set_query_parameters(d_url, {'checksum': replica['adler32']}) for d_url in file['destinations']]
 
