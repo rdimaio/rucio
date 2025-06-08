@@ -1505,6 +1505,12 @@ def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_acco
         rse_core.add_rse_attribute(rse_id, RseAttr.FTS, TEST_FTS_HOST)
         rse_core.set_rse_limits(rse_id=rse_id, name='MinFreeSpace', value=1)
         rse_core.set_rse_usage(rse_id=rse_id, source='storage', used=1, free=0)
+
+        # Disable checksum verification to avoid defining
+        # source and destination checksum for each transfer
+        # (required when using the mock protocol on FTS >= 3.14.1).
+        rse_core.add_rse_attribute(rse_id, RseAttr.VERIFY_CHECKSUM, False)
+
     distance_core.add_distance(rse1_id, rse2_id, distance=10)
     distance_core.add_distance(rse2_id, rse3_id, distance=10)
     distance_core.add_distance(rse3_id, rse4_id, distance=10)
