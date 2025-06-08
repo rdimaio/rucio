@@ -1668,38 +1668,49 @@ def test_transfer_with_tokens(vo, did_factory, root_account, caches_mock, file_c
     all_rses = [src_rse_id, dst_rse_id]
 
     did = did_factory.upload_test_file(src_rse)
+    replica = replica_core.get_replica(rse_id=src_rse_id, **did)
 
-    rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
+    class _FTSWrapper(FTSWrapper):
+        @staticmethod
+        def on_submit(file):
+            # Set the correct checksum on both source and destination.
+            # This is necessary as we're using the mock protocol,
+            # which requires both source and destination checksums to be defined.
+            file['sources'] = [set_query_parameters(s_url, {'checksum': replica['adler32']}) for s_url in file['sources']]
+            file['destinations'] = [set_query_parameters(d_url, {'checksum': replica['adler32']}) for d_url in file['destinations']]
 
-    received_messages = {}
+    with patch('rucio.core.transfer.TRANSFERTOOL_CLASSES_BY_NAME', new={'fts3': _FTSWrapper}):
+        rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None)
 
-    class ReceiverWrapper(Receiver):
-        """
-        Wrap receiver to record the last handled message for each given request_id
-        """
-        def _perform_request_update(self, msg, *, session=None, logger=logging.log):
-            ret = super()._perform_request_update(msg, session=session, logger=logger)
-            received_messages[msg['file_metadata']['request_id']] = msg
-            return ret
+        received_messages = {}
 
-    with patch('rucio.daemons.conveyor.receiver.Receiver', ReceiverWrapper):
-        receiver_thread = threading.Thread(target=receiver, kwargs={'id_': 0, 'all_vos': True, 'total_threads': 1})
-        receiver_thread.start()
-        try:
-            submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
-            # Wait for the reception of the FTS Completion message for the submitted request
-            request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
-            for i in range(MAX_POLL_WAIT_SECONDS):
-                if request['id'] in received_messages:
-                    break
-                if i == MAX_POLL_WAIT_SECONDS - 1:
-                    assert False  # Waited too long; fail the test
-                time.sleep(1)
-            assert received_messages[request['id']]['job_metadata']['auth_method'] == 'oauth2'
-        finally:
-            RECEIVER_GRACEFUL_STOP.set()
-            receiver_thread.join(timeout=5)
-            RECEIVER_GRACEFUL_STOP.clear()
+        class ReceiverWrapper(Receiver):
+            """
+            Wrap receiver to record the last handled message for each given request_id
+            """
+            def _perform_request_update(self, msg, *, session=None, logger=logging.log):
+                ret = super()._perform_request_update(msg, session=session, logger=logger)
+                received_messages[msg['file_metadata']['request_id']] = msg
+                return ret
+
+        with patch('rucio.daemons.conveyor.receiver.Receiver', ReceiverWrapper):
+            receiver_thread = threading.Thread(target=receiver, kwargs={'id_': 0, 'all_vos': True, 'total_threads': 1})
+            receiver_thread.start()
+            try:
+                submitter(once=True, rses=[{'id': rse_id} for rse_id in all_rses], group_bulk=2, partition_wait_time=0, transfertype='single', filter_transfertool=None)
+                # Wait for the reception of the FTS Completion message for the submitted request
+                request = request_core.get_request_by_did(rse_id=dst_rse_id, **did)
+                for i in range(MAX_POLL_WAIT_SECONDS):
+                    if request['id'] in received_messages:
+                        break
+                    if i == MAX_POLL_WAIT_SECONDS - 1:
+                        assert False  # Waited too long; fail the test
+                    time.sleep(1)
+                assert received_messages[request['id']]['job_metadata']['auth_method'] == 'oauth2'
+            finally:
+                RECEIVER_GRACEFUL_STOP.set()
+                receiver_thread.join(timeout=5)
+                RECEIVER_GRACEFUL_STOP.clear()
 
 
 @pytest.mark.noparallel(groups=[NoParallelGroups.PREPARER])
