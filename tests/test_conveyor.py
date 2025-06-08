@@ -545,14 +545,13 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
         dst_rse = 'XRD4'
         dst_rse_id = rse_core.get_rse_id(rse=dst_rse, vo=vo)
 
-        # Disable checksum verification to avoid defining
-        # source and destination checksum for each transfer
-        # (required when using the mock protocol on FTS >= 3.14.1),
-        # which should be done on this test because the DID does not actually exist.
-        rse_core.add_rse_attribute(src_rse_id, RseAttr.VERIFY_CHECKSUM, False)
-        rse_core.add_rse_attribute(dst_rse_id, RseAttr.VERIFY_CHECKSUM, False)
-
         all_rses = [src_rse_id, jump_rse_id, dst_rse_id]
+
+        for rse_id in all_rses:
+            # Disable checksum verification to avoid defining
+            # source and destination checksum for each transfer
+            # (required when using the mock protocol on FTS >= 3.14.1).
+            rse_core.add_rse_attribute(rse_id, RseAttr.VERIFY_CHECKSUM, False)
 
         # Register a did which doesn't exist. It will trigger a failure error during the FTS transfer.
         did = did_factory.random_file_did()
