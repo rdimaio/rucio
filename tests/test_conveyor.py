@@ -473,6 +473,12 @@ def test_multisource_receiver(vo, did_factory, replica_client, root_account, met
 
         all_rses = [src_rse1_id, src_rse2_id, dst_rse_id]
 
+        for rse_id in all_rses:
+            # Disable checksum verification to avoid defining
+            # source and destination checksum for each transfer
+            # (required when using the mock protocol on FTS >= 3.14.1).
+            rse_core.add_rse_attribute(rse_id, RseAttr.VERIFY_CHECKSUM, False)
+
         # Add a good replica on the RSE which has a higher distance ranking
         did = did_factory.upload_test_file(src_rse1)
         # Add non-existing replica which will fail during multisource transfers on the RSE with lower cost (will be the preferred source)
