@@ -609,6 +609,12 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock
 
         all_rses = [src_rse_id, jump_rse_id, dst_rse_id]
 
+        for rse_id in all_rses:
+            # Disable checksum verification to avoid defining
+            # source and destination checksum for each transfer
+            # (required when using the mock protocol on FTS >= 3.14.1).
+            rse_core.add_rse_attribute(rse_id, RseAttr.VERIFY_CHECKSUM, False)
+
         did = did_factory.upload_test_file(src_rse)
         rule_priority = 5
         rule_core.add_rule(dids=[did], account=root_account, copies=1, rse_expression=dst_rse, grouping='ALL', weight=None, lifetime=None, locked=False, subscription_id=None, priority=rule_priority)
