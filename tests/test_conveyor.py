@@ -660,6 +660,12 @@ def test_receiver_archiving(vo, did_factory, root_account, caches_mock, scitags_
     dst_rse_id = rse_core.get_rse_id(rse=dst_rse, vo=vo)
     all_rses = [src_rse_id, dst_rse_id]
 
+    for rse_id in all_rses:
+        # Disable checksum verification to avoid defining
+        # source and destination checksum for each transfer
+        # (required when using the mock protocol on FTS >= 3.14.1).
+        rse_core.add_rse_attribute(rse_id, RseAttr.VERIFY_CHECKSUM, False)
+
     received_messages = {}
 
     class ReceiverWrapper(Receiver):
