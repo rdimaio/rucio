@@ -59,6 +59,45 @@ MAX_POLL_WAIT_SECONDS = 100
 TEST_FTS_HOST = 'https://fts:8446'
 
 
+class FTSWrapper(FTS3Transfertool):
+    """
+    Used to alter the JSON exchange with FTS.
+
+    One use-case would be to use the "mock" gfal plugin (by using a mock:// protocol/scheme) to simulate failuare on fts side.
+    For example, adding size_pre=<something> url parameter would result in "stat" calls on FTS side to return(simulate) this file size.
+    https://gitlab.cern.ch/dmc/gfal2/-/blob/master/src/plugins/mock/README_PLUGIN_MOCK
+    """
+
+    @staticmethod
+    def on_submit(file):
+        pass
+
+    @staticmethod
+    def on_receive(job_response):
+        pass
+
+    def _file_from_transfer(self, transfer, job_params):
+        file = super()._file_from_transfer(transfer, job_params)
+        self.on_submit(file)
+        return file
+
+    def _FTS3Transfertool__bulk_query_responses(self, jobs_response, requests_by_eid):  # noqa: N802
+        self.on_receive(jobs_response)
+        return super()._FTS3Transfertool__bulk_query_responses(jobs_response, requests_by_eid)
+
+
+class ChecksumFTSWrapper(FTSWrapper):
+    @staticmethod
+    def on_submit(file):
+        adler = file.get('metadata', {}).get('adler32')
+        if not adler:
+            return
+        file['sources'] = [set_query_parameters(u, {'checksum': adler})
+                           for u in file['sources']]
+        file['destinations'] = [set_query_parameters(u, {'checksum': adler})
+                                for u in file['destinations']]
+
+
 @transactional_session
 def __update_request(request_id, *, session=None, **kwargs):
     stmt = update(
@@ -451,7 +490,7 @@ def test_multisource(vo, did_factory, root_account, replica_client, caches_mock,
     )
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
+@patch('rucio.core.transfer.TRANSFERTOOL_CLASSES_BY_NAME', new={'fts3': ChecksumFTSWrapper})
 @skip_rse_tests_with_accounts
 @pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER])
@@ -525,7 +564,7 @@ def test_multisource_receiver(vo, did_factory, replica_client, root_account, met
         RECEIVER_GRACEFUL_STOP.clear()
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
+@patch('rucio.core.transfer.TRANSFERTOOL_CLASSES_BY_NAME', new={'fts3': ChecksumFTSWrapper})
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER])
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
@@ -580,7 +619,7 @@ def test_multihop_receiver_on_failure(vo, did_factory, replica_client, root_acco
         RECEIVER_GRACEFUL_STOP.clear()
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
+@patch('rucio.core.transfer.TRANSFERTOOL_CLASSES_BY_NAME', new={'fts3': ChecksumFTSWrapper})
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER])
 @pytest.mark.parametrize("caches_mock", [{"caches_to_mock": [
@@ -625,7 +664,7 @@ def test_multihop_receiver_on_success(vo, did_factory, root_account, caches_mock
         RECEIVER_GRACEFUL_STOP.clear()
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
+@patch('rucio.core.transfer.TRANSFERTOOL_CLASSES_BY_NAME', new={'fts3': ChecksumFTSWrapper})
 @skip_rse_tests_with_accounts
 @pytest.mark.dirty(reason="leaves files in XRD containers")
 @pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER, NoParallelGroups.POLLER])
@@ -695,7 +734,7 @@ def test_receiver_archiving(vo, did_factory, root_account, caches_mock, scitags_
             RECEIVER_GRACEFUL_STOP.clear()
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
+@patch('rucio.core.transfer.TRANSFERTOOL_CLASSES_BY_NAME', new={'fts3': ChecksumFTSWrapper})
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.PREPARER, NoParallelGroups.THROTTLER, NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER])
 @pytest.mark.parametrize("file_config_mock", [{
@@ -1027,7 +1066,7 @@ def test_failed_transfers_to_mas_existing_replica(rse_factory, did_factory, root
     assert rule_core.get_rule(rule2_id)['state'] == RuleState.STUCK
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
+@patch('rucio.core.transfer.TRANSFERTOOL_CLASSES_BY_NAME', new={'fts3': ChecksumFTSWrapper})
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER, NoParallelGroups.FINISHER])
 def test_lost_transfers(rse_factory, did_factory, root_account):
@@ -1088,6 +1127,7 @@ def test_cancel_rule(rse_factory, did_factory, root_account):
     class _FTSWrapper(FTSWrapper):
         @staticmethod
         def on_submit(file):
+            FTSWrapper.on_submit(file)
             # Simulate using the mock gfal plugin that it takes a long time to copy the file
             file['sources'] = [set_query_parameters(s_url, {'time': 30}) for s_url in file['sources']]
 
@@ -1102,33 +1142,6 @@ def test_cancel_rule(rse_factory, did_factory, root_account):
 
     fts_response = FTS3Transfertool(external_host=TEST_FTS_HOST).bulk_query({request['external_id']: {request['id']: request}})
     assert fts_response[request['external_id']][request['id']].job_response['job_state'] == 'CANCELED'
-
-
-class FTSWrapper(FTS3Transfertool):
-    """
-    Used to alter the JSON exchange with FTS.
-
-    One use-case would be to use the "mock" gfal plugin (by using a mock:// protocol/scheme) to simulate failuare on fts side.
-    For example, adding size_pre=<something> url parameter would result in "stat" calls on FTS side to return(simulate) this file size.
-    https://gitlab.cern.ch/dmc/gfal2/-/blob/master/src/plugins/mock/README_PLUGIN_MOCK
-    """
-
-    @staticmethod
-    def on_submit(file):
-        pass
-
-    @staticmethod
-    def on_receive(job_response):
-        pass
-
-    def _file_from_transfer(self, transfer, job_params):
-        file = super()._file_from_transfer(transfer, job_params)
-        self.on_submit(file)
-        return file
-
-    def _FTS3Transfertool__bulk_query_responses(self, jobs_response, requests_by_eid):  # noqa: N802
-        self.on_receive(jobs_response)
-        return super()._FTS3Transfertool__bulk_query_responses(jobs_response, requests_by_eid)
 
 
 @pytest.fixture
@@ -1428,7 +1441,7 @@ def test_multi_vo_certificates(file_config_mock, rse_factory, did_factory, scope
         assert sorted(certs_used_by_poller) == ['DEFAULT_DUMMY_CERT', 'NEW_VO_DUMMY_CERT']
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
+@patch('rucio.core.transfer.TRANSFERTOOL_CLASSES_BY_NAME', new={'fts3': ChecksumFTSWrapper})
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER, NoParallelGroups.FINISHER])
 @pytest.mark.parametrize("core_config_mock", [
@@ -1487,6 +1500,7 @@ def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_acco
     class _FTSWrapper(FTSWrapper):
         @staticmethod
         def on_submit(file):
+            FTSWrapper.on_submit(file)
             # Simulate using the mock gfal plugin a transfer failure
             file['sources'] = [set_query_parameters(s_url, {'errno': 2}) for s_url in file['sources']]
 
@@ -1560,7 +1574,6 @@ def test_two_multihops_same_intermediate_rse(rse_factory, did_factory, root_acco
     assert dict_stats[rse2_id][rse1_id]['bytes_done'] == 2
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.SUBMITTER, NoParallelGroups.POLLER])
 def test_checksum_validation(rse_factory, did_factory, root_account):
@@ -1591,6 +1604,7 @@ def test_checksum_validation(rse_factory, did_factory, root_account):
     class _FTSWrapper(FTSWrapper):
         @staticmethod
         def on_submit(file):
+            FTSWrapper.on_submit(file)
             # Set the correct checksum on source and simulate a wrong checksum on destination
             file['sources'] = [set_query_parameters(s_url, {'checksum': replica['adler32']}) for s_url in file['sources']]
             file['destinations'] = [set_query_parameters(d_url, {'checksum': 'randomString2'}) for d_url in file['destinations']]
@@ -1605,15 +1619,15 @@ def test_checksum_validation(rse_factory, did_factory, root_account):
     # No common supported checksum between the source and destination rse. It will verify the destination rse checksum and fail
     request = __wait_for_state_transition(dst_rse_id=dst_rse2_id, **did)
     assert request['state'] == RequestState.FAILED
-    assert 'User and destination checksums do not match' in request['err_msg']
+    assert 'User-defined and destination' in request['err_msg']
 
     # Common checksum exists between the two. It must use "both" validation strategy and fail
     request = __wait_for_state_transition(dst_rse_id=dst_rse3_id, **did)
-    assert 'Source and destination checksums do not match' in request['err_msg']
+    assert 'Source and user-defined' in request['err_msg']
     assert request['state'] == RequestState.FAILED
 
 
-@pytest.mark.skip(reason="Pending https://cern.service-now.com/service-portal?id=ticket&table=incident&n=INC4506150")
+@patch('rucio.core.transfer.TRANSFERTOOL_CLASSES_BY_NAME', new={'fts3': ChecksumFTSWrapper})
 @skip_rse_tests_with_accounts
 @pytest.mark.noparallel(groups=[NoParallelGroups.XRD, NoParallelGroups.SUBMITTER, NoParallelGroups.RECEIVER])
 @pytest.mark.parametrize("file_config_mock", [
