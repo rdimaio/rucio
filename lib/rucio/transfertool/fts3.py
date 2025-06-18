@@ -21,7 +21,7 @@ import uuid
 from configparser import NoOptionError, NoSectionError
 from json import loads
 from typing import TYPE_CHECKING, Any, Optional, Union
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse, urlunparse
 
 import requests
 from dogpile.cache.api import NoValue
@@ -999,12 +999,65 @@ class FTS3Transfertool(Transfertool):
         )
         return jobs
 
+    @staticmethod
+    def _add_checksum_to_mock_url(url: str, checksum_name: str, checksum_value: str) -> str:
+        """
+        For mock:// URLs, add the checksum parameter to the URL.
+        This is needed for FTS 3.14.1+ as it requires the checksum to be specified in the URL.
+
+        :param url: The URL to modify
+        :param checksum_name: The name of the checksum (e.g., 'adler32')
+        :param checksum_value: The value of the checksum
+        :return: The modified URL
+        """
+        if not url.startswith('mock://') or not checksum_name or not checksum_value:
+            return url
+
+        # Parse the URL into components
+        parsed = urlparse(url)
+
+        # Parse any existing query parameters
+        query_params = parse_qs(parsed.query)
+
+        # Add or update the checksum parameter
+        query_params['checksum'] = [checksum_value]
+
+        # Rebuild the query string
+        query_string = '&'.join([f'{k}={v[0]}' for k, v in query_params.items()])
+
+        # Rebuild the URL with the new query string
+        parts = list(parsed)
+        parts[4] = query_string  # index 4 is the query part
+
+        return urlunparse(parts)
+
     def _file_from_transfer(self, transfer: "DirectTransfer", job_params: dict[str, str]) -> dict[str, Any]:
         rws = transfer.rws
         checksum_to_use = _pick_fts_checksum(transfer, path_strategy=job_params['verify_checksum'])
+
+        # Get checksum value to add to mock URLs
+        checksum_value = None
+        checksum_name = None
+        if checksum_to_use:
+            checksum_parts = checksum_to_use.split(':')
+            if len(checksum_parts) == 2:
+                checksum_name, checksum_value = checksum_parts
+
+        # Add checksums to mock URLs
+        sources = []
+        for s in transfer.sources:
+            src_url = transfer.source_url(s)
+            if src_url.startswith('mock://'):
+                src_url = FTS3Transfertool._add_checksum_to_mock_url(src_url, checksum_name, checksum_value)  # type: ignore
+            sources.append(src_url)
+
+        dest_url = transfer.dest_url
+        if dest_url.startswith('mock://'):
+            dest_url = FTS3Transfertool._add_checksum_to_mock_url(dest_url, checksum_name, checksum_value)  # type: ignore
+
         t_file = {
-            'sources': [transfer.source_url(s) for s in transfer.sources],
-            'destinations': [transfer.dest_url],
+            'sources': sources,
+            'destinations': [dest_url],
             'metadata': {
                 'request_id': rws.request_id,
                 'scope': rws.scope,
