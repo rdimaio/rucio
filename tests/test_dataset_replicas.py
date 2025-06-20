@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from datetime import datetime, timedelta
+
 import pytest
 from sqlalchemy import and_, delete, select
 from sqlalchemy.exc import NoResultFound
@@ -156,6 +158,41 @@ class TestDatasetReplicaClient:
         assert res[0]['state'] == 'AVAILABLE'
         assert res[1]['state'] == 'AVAILABLE'
         assert res[2]['state'] == 'AVAILABLE'
+
+        # Update replica state of one file to TEMPORARY_UNAVAILABLE
+        temp_unavailable_file = res[0]['name']
+        scope_rep = res[0]['scope']
+
+        # Get the file replica information including PFNs
+        replicas = [r for r in replica_client.list_replicas(
+            dids=[{'scope': scope_rep, 'name': temp_unavailable_file}],
+            rse_expression=rse,
+            all_states=True  # Include all states to see all replicas
+        )]
+
+        # Extract PFNs from the replica information
+        file_pfns = []
+        for replica in replicas:
+            if rse in replica['rses']:
+                file_pfns.extend(replica['rses'][rse])
+
+        # Mark the replica as TEMPORARY_UNAVAILABLE
+        replica_client.add_bad_pfns(
+            pfns=file_pfns,
+            reason='Testing TEMPORARY_UNAVAILABLE handling',
+            state='TEMPORARY_UNAVAILABLE',
+            expires_at=(datetime.utcnow() + timedelta(seconds=15)).isoformat()
+        )
+
+        # Running list_dataset_replicas with deep=True should now show fewer replicas
+        # since the TEMPORARY_UNAVAILABLE replica should be excluded
+        res = [r for r in replica_client.list_dataset_replicas(scope=scope,
+                                                               name=dataset_name,
+                                                               deep=True)]
+
+        # Assert that the TEMPORARY_UNAVAILABLE replica is not present in the result
+        assert len(res) == 2
+        assert temp_unavailable_file not in [r['name'] for r in res]
 
         del_rse(rse_id)
 
