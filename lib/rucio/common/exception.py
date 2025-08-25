@@ -1185,9 +1185,8 @@ class ConfigLoadingError(RucioException):
             self,
             config_file: str,
             *args: str,
-            **kwargs
     ) -> None:
-        super(ConfigLoadingError, self).__init__(*args, **kwargs)
+        super(ConfigLoadingError, self).__init__(*args)
         self._message = 'Could not load Rucio configuration file. Rucio tried loading the following configuration file:\n\t %s' % (config_file)
         self.error_code = 112
 
