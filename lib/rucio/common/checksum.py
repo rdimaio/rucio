@@ -98,7 +98,7 @@ def adler32(file: "FileDescriptorOrPath") -> str:
                     adler = zlib.adler32(block, adler)
 
     except Exception as e:
-        raise ChecksumCalculationError('adler32', str(file), e)
+        raise ChecksumCalculationError('adler32', str(file), repr(e))
 
     # backflip on 32bit -- can be removed once everything is fully migrated to 64bit
     if adler < 0:
@@ -120,7 +120,7 @@ def md5(file: "FileDescriptorOrPath") -> str:
             for block in _iter_blocks(f):
                 hash_md5.update(block)
     except Exception as e:
-        raise ChecksumCalculationError('md5', str(file), e)
+        raise ChecksumCalculationError('md5', str(file), repr(e))
 
     return hash_md5.hexdigest()
 
@@ -138,7 +138,7 @@ def sha256(file: "FileDescriptorOrPath") -> str:
             for block in _iter_blocks(f):
                 checksum.update(block)
     except Exception as e:
-        raise ChecksumCalculationError('sha256', str(file), e)
+        raise ChecksumCalculationError('sha256', str(file), repr(e))
     return checksum.hexdigest()
 
 
@@ -155,7 +155,7 @@ def crc32(file: "FileDescriptorOrPath") -> str:
             for block in _iter_blocks(f):
                 prev = zlib.crc32(block, prev)
     except Exception as e:
-        raise ChecksumCalculationError('crc32', str(file), e)
+        raise ChecksumCalculationError('crc32', str(file), repr(e))
     return "%X" % (prev & 0xFFFFFFFF)
 
 
