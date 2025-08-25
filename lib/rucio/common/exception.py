@@ -1168,9 +1168,8 @@ class ChecksumCalculationError(RucioException):
             algorithm_name: str,
             filepath: str,
             *args: str,
-            **kwargs
     ) -> None:
-        super(ChecksumCalculationError, self).__init__(*args, **kwargs)
+        super(ChecksumCalculationError, self).__init__(*args)
         self.algorithm_name = algorithm_name
         self.filepath = filepath
         self._message = 'An error occurred while calculating the %s checksum of file %s.' % (self.algorithm_name, self.filepath)
