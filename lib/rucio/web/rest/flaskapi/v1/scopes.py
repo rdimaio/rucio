@@ -40,25 +40,14 @@ class Scope(ErrorHandlingMethodView):
                   description: "All scopes."
                   type: array
                   items:
-                    type: object
-                    properties:
-                      scope:
-                        description: "A scope."
-                        type: string
-                      account:
-                        description: "The owner account."
-                        type: string
-
+                    description: "A scope."
+                    type: string
           401:
             description: "Invalid Auth Token"
           406:
             description: "Not acceptable"
         """
-        scopes = list_scopes(vo=request.environ['vo'])
-        res = []
-        for dictionary in scopes:
-            res.append(dictionary)
-        return jsonify(res)
+        return jsonify(list_scopes(vo=request.environ['vo']))
 
     def post(self, account, scope):
         """
