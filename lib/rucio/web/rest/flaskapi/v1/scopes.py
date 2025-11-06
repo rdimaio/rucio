@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-from flask import Flask, Response, jsonify, request
+from flask import Flask, jsonify, request
 
 from rucio.common.constants import HTTPMethod
 from rucio.common.exception import AccountNotFound, Duplicate, ScopeNotFound, VONotFound
@@ -25,7 +24,7 @@ from rucio.web.rest.flaskapi.v1.common import ErrorHandlingMethodView, check_acc
 class Scope(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
-    def get(self) -> Response:
+    def get(self):
         """
         ---
         summary: List Scopes
@@ -61,7 +60,7 @@ class Scope(ErrorHandlingMethodView):
             res.append(dictionary)
         return jsonify(res)
 
-    def post(self, account: str, scope: str) -> Response:
+    def post(self, account, scope):
         """
         ---
         summary: Add Scope
@@ -103,9 +102,9 @@ class Scope(ErrorHandlingMethodView):
         except AccountNotFound as error:
             return generate_http_error_flask(404, error)
 
-        return Response('Created', 201)
+        return 'Created', 201
 
-    def put(self, account: str, scope: str) -> Response:
+    def put(self, account, scope):
         """
         ---
         summary: Change ownership of a scope.
@@ -143,13 +142,13 @@ class Scope(ErrorHandlingMethodView):
         except (ScopeNotFound, AccountNotFound, VONotFound) as error:
             return generate_http_error_flask(404, error)
 
-        return Response("", 201)
+        return '', 201
 
 
 class AccountScopeList(ErrorHandlingMethodView):
 
     @check_accept_header_wrapper_flask(['application/json'])
-    def get(self, account: str) -> Response:
+    def get(self, account):
         """
         ---
         summary: List Account Scopes
