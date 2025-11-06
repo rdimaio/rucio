@@ -143,7 +143,7 @@ class Scope(ErrorHandlingMethodView):
         except (ScopeNotFound, AccountNotFound, VONotFound) as error:
             return generate_http_error_flask(404, error)
 
-        return Response("", 200)
+        return Response("", 201)
 
 
 class AccountScopeList(ErrorHandlingMethodView):
