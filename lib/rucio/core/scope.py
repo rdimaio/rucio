@@ -94,7 +94,7 @@ def bulk_add_scopes(
                 raise
 
 
-def list_scopes(session: "Session", filter_: Optional[dict[str, Any]] = None) -> "list[dict[str, Any]]":
+def list_scopes(session: "Session", filter_: Optional[dict[str, Any]] = None) -> list["InternalScope"]:
     """
     Lists all scopes.
     :param session: The database session in use.
@@ -104,8 +104,7 @@ def list_scopes(session: "Session", filter_: Optional[dict[str, Any]] = None) ->
     """
     filter_ = filter_ or {}
     stmt = select(
-        models.Scope.scope,
-        models.Scope.account
+        models.Scope.scope
     ).where(
         models.Scope.status != ScopeStatus.DELETED
     )
@@ -120,14 +119,8 @@ def list_scopes(session: "Session", filter_: Optional[dict[str, Any]] = None) ->
                 stmt = stmt.where(
                     models.Scope.scope == filter_['scope']
                 )
-    scopes = []
-    for scope, account in session.execute(stmt):
-        scopes.append({
-            "scope": scope,
-            "account": account
-        })
 
-    return scopes
+    return list(session.execute(stmt).scalars().all())
 
 
 def get_scopes(
