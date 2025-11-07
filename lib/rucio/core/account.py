@@ -30,7 +30,7 @@ from rucio.common.constants import DEFAULT_VO
 from rucio.core.vo import vo_exists
 from rucio.db.sqla import models
 from rucio.db.sqla.constants import AccountStatus, AccountType
-from rucio.db.sqla.session import stream_session, transactional_session
+from rucio.db.sqla.session import stream_session
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
@@ -40,12 +40,10 @@ if TYPE_CHECKING:
     from rucio.common.types import AccountAttributesDict, AccountDict, AccountUsageModelDict, IdentityDict, InternalAccount, UsageDict
 
 
-@transactional_session
 def add_account(
     account: "InternalAccount",
     type_: AccountType,
     email: Optional[str],
-    *,
     session: "Session"
 ) -> None:
     """ Add an account with the given account name and type.
@@ -115,10 +113,8 @@ def get_account(
     return result
 
 
-@transactional_session
 def del_account(
     account: "InternalAccount",
-    *,
     session: "Session"
 ) -> None:
     """ Disable an account with the given account name.
@@ -140,12 +136,10 @@ def del_account(
     query_result.update({'status': AccountStatus.DELETED, 'deleted_at': datetime.utcnow()})
 
 
-@transactional_session
 def update_account(
     account: "InternalAccount",
     key: str,
     value: Any,
-    *,
     session: "Session"
 ) -> None:
     """ Update a property of an account.
@@ -333,12 +327,10 @@ def has_account_attribute(
     return session.execute(query).scalar() is not None
 
 
-@transactional_session
 def add_account_attribute(
     account: "InternalAccount",
     key: str,
     value: Any,
-    *,
     session: "Session"
 ) -> None:
     """
@@ -375,11 +367,9 @@ def add_account_attribute(
         raise exception.RucioException(str(format_exc()))
 
 
-@transactional_session
 def del_account_attribute(
     account: "InternalAccount",
     key: str,
-    *,
     session: "Session"
 ) -> None:
     """
