@@ -44,7 +44,7 @@ if TYPE_CHECKING:
 def add_account(
     account: "InternalAccount",
     type_: AccountType,
-    email: str,
+    email: Optional[str],
     *,
     session: "Session"
 ) -> None:
